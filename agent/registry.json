@@ -1,0 +1,35 @@
+[
+  {
+    "id": "weather-basic",
+    "name": "Open-Meteo Forecast",
+    "description": "Provides free weather forecast data without requiring an API key.",
+    "endpoint": "https://api.open-meteo.com/v1/forecast",
+    "costUSDC": 0.01,
+    "qualityScore": 7,
+    "category": "weather",
+    "requiresKey": false,
+    "keyEnvVar": ""
+  },
+  {
+    "id": "coingecko-price",
+    "name": "CoinGecko Simple Price",
+    "description": "Returns simple cryptocurrency price data without requiring an API key.",
+    "endpoint": "https://api.coingecko.com/api/v3/simple/price",
+    "costUSDC": 0.02,
+    "qualityScore": 8,
+    "category": "data",
+    "requiresKey": false,
+    "keyEnvVar": ""
+  },
+  {
+    "id": "openai-gpt4o-mini",
+    "name": "Llama 3.1 (Groq)",
+    "description": "Fast AI inference via Groq — llama-3.1-8b-instant",
+    "endpoint": "https://api.groq.com/openai/v1/chat/completions",
+    "costUSDC": 0.05,
+    "qualityScore": 10,
+    "category": "ai",
+    "requiresKey": true,
+    "keyEnvVar": "GROQ_API_KEY"
+  }
+]

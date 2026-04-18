@@ -1,0 +1,5 @@
+{
+  "name": "the-acquirer",
+  "private": true,
+  "workspaces": ["frontend", "backend", "agent", "contracts"]
+}

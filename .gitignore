@@ -1,0 +1,27 @@
+# Environment files - NEVER commit these
+.env
+.env.local
+.env*.local
+backend/.env
+agent/.env
+contracts/.env
+frontend/.env.local
+frontend/.env
+
+# Dependencies
+node_modules/
+*/node_modules/
+**/node_modules/
+
+# Next.js build
+.next/
+out/
+
+# Hardhat
+contracts/artifacts/
+contracts/cache/
+
+# Misc
+.DS_Store
+*.log
+npm-debug.log*
