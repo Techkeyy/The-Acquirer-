@@ -6,7 +6,7 @@ The Acquirer is not an app. It is a protocol.
 
 Any AI agent can plug into The Acquirer to:
 - Discover available API services from an on-chain registry
-- Pay for services trustlessly using USDC on Kite chain
+- Pay for services trustlessly using KITE native token on Kite chain
 - Execute the service and receive an immutable on-chain receipt
 - All within a strict budget enforced by smart contract
 
@@ -46,6 +46,8 @@ Then open: http://localhost:3000
 - AI: Claude Haiku via Anthropic API
 - APIs: Open-Meteo, CoinGecko, Claude Haiku
 - Chain: Kite Testnet (EVM-compatible)
+
+Note: Payments use Kite chain native token scaled to represent service costs. Each API service has a price in KITE wei, enforced by the BudgetVault smart contract.
 
 ## What Makes This A Protocol, Not An App
 - Any developer can register their API on-chain: POST /register-api

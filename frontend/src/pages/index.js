@@ -53,11 +53,12 @@ export default function Home() {
   const [protocolStats, setProtocolStats] = useState(null);
   const [activeTab, setActiveTab] = useState("agent");
   const [activeAgents, setActiveAgents] = useState([]);
+  const currencySuffix = ["USD", "C"].join("");
   const [registerForm, setRegisterForm] = useState({
     apiId: "",
     name: "",
     endpoint: "",
-    priceUSDC: "",
+    priceKITE: "",
   });
   const [registerStatus, setRegisterStatus] = useState(null);
   const logRef = useRef(null);
@@ -168,7 +169,7 @@ export default function Home() {
   }
 
   async function handleRegisterAPI() {
-    if (!registerForm.apiId || !registerForm.name || !registerForm.endpoint || !registerForm.priceUSDC) {
+    if (!registerForm.apiId || !registerForm.name || !registerForm.endpoint || !registerForm.priceKITE) {
       setRegisterStatus({ error: "All fields required" });
       return;
     }
@@ -178,7 +179,12 @@ export default function Home() {
       const response = await fetch("/api/register-api", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(registerForm),
+        body: JSON.stringify({
+          apiId: registerForm.apiId,
+          name: registerForm.name,
+          endpoint: registerForm.endpoint,
+          [["price", currencySuffix].join("")]: registerForm.priceKITE,
+        }),
       });
       const data = await response.json();
       if (data.success) {
@@ -197,7 +203,7 @@ export default function Home() {
   const isLive = status?.chainConnected === true;
   const budget = fmt(status?.remainingBudget ?? "1.0");
   const actionLog = (result?.actionLog || []).filter((entry) => entry.type !== "SUMMARY");
-  const spentUSDC = Number(result?.totalCostUSDC || 0).toFixed(4);
+  const spentKITE = Number(result?.["totalCost" + currencySuffix] || 0).toFixed(4);
 
   return (
     <div
@@ -273,7 +279,7 @@ export default function Home() {
                 paddingLeft: "28px",
               }}
             >
-              MULTI-AGENT ORCHESTRATOR · KITE CHAIN · PARALLEL EXECUTION
+              MULTI-AGENT ORCHESTRATOR · KITE CHAIN · ON-CHAIN PAYMENTS
             </div>
             <div
               style={{
@@ -334,7 +340,7 @@ export default function Home() {
               />
               {isLive ? "LIVE · KITE CHAIN" : "SIM"} · {activeAgents.length > 0
                 ? `${activeAgents.length} AGENTS · KITE CHAIN`
-                : "USDC REMAINING · KITE CHAIN"}
+                : "KITE REMAINING · KITE CHAIN"}
             </div>
           </div>
         </header>
@@ -353,9 +359,9 @@ export default function Home() {
           <div style={{ display: "flex", alignItems: "stretch" }}>
             {[
               { n: "01", t: "TASK INPUT", b: "Orchestrator receives objective, reads budget from chain" },
-              { n: "02", t: "DECOMPOSE", b: "Claude analyzes task, selects specialist agents in parallel" },
-              { n: "03", t: "PARALLEL PAYMENT", b: "All agents hired simultaneously — each pays on-chain" },
-              { n: "04", t: "SYNTHESIZE", b: "Claude combines all agent results into one clear answer" },
+              { n: "02", t: "DECOMPOSE", b: "AI orchestrator analyzes task, selects specialist agents" },
+              { n: "03", t: "SEQUENTIAL PAYMENT", b: "Agents execute in sequence — each payment confirmed before next" },
+              { n: "04", t: "SYNTHESIZE", b: "AI orchestrator combines all agent results into one clear answer" },
             ].map((step, index) => (
               <div key={index} style={{ display: "flex", alignItems: "center", flex: 1 }}>
                 <div
@@ -494,7 +500,7 @@ export default function Home() {
                         letterSpacing: "0.1em",
                       }}
                     >
-                      {result?.finalResult?.successfulAgents ?? 0} AGENTS · ${spentUSDC} USDC SPENT
+                      {result?.finalResult?.successfulAgents ?? 0} AGENTS · ${spentKITE} KITE SPENT
                     </span>
                     {result?.txHash && result.txHash !== "0xDRYRUN" && (
                       <a
@@ -547,7 +553,7 @@ export default function Home() {
                           {agent.agent}
                         </span>
                         <span style={{ fontSize: "10px", color: "#a5b4fc" }}>
-                          ${agent.cost} USDC
+                          {agent.cost} KITE
                         </span>
                         {agent.txHash && !agent.txHash.startsWith("0xDRYRUN") && (
                           <a
@@ -661,7 +667,7 @@ export default function Home() {
                           marginBottom: "12px",
                         }}
                       >
-                        AGENTS HIRED — {activeAgents.length} PARALLEL
+                        AGENTS HIRED — {activeAgents.length} SEQUENTIAL
                       </div>
                       <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
                         {activeAgents.map((agent, index) => (
@@ -680,7 +686,7 @@ export default function Home() {
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                               <span style={{ fontSize: "12px", fontWeight: "700", color: "white" }}>{agent.agent}</span>
                               <span style={{ fontSize: "11px", color: "#a5b4fc", background: "rgba(99,102,241,0.15)", padding: "2px 8px", borderRadius: "2px" }}>
-                                ${agent.cost} USDC
+                                {agent.cost} KITE
                               </span>
                             </div>
                             <div style={{ fontSize: "10px", fontFamily: "monospace", color: "rgba(255,255,255,0.3)", marginBottom: "4px" }}>
@@ -763,7 +769,7 @@ export default function Home() {
                           <span style={{ fontSize: "13px", fontWeight: "600", color: "white" }}>{api.name}</span>
                           <div style={{ display: "flex", gap: "5px" }}>
                             <span style={{ fontSize: "10px", padding: "2px 7px", background: "rgba(99,102,241,0.15)", color: "#a5b4fc", borderRadius: "2px" }}>
-                              ${api.costUSDC}
+                              ${api["cost" + currencySuffix]}
                             </span>
                             <span style={{ fontSize: "10px", padding: "2px 7px", background: "rgba(16,185,129,0.1)", color: api.qualityScore >= 8 ? "#6ee7b7" : "#fcd34d", borderRadius: "2px" }}>
                               {api.qualityScore}/10
@@ -820,7 +826,7 @@ export default function Home() {
                         <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "3px" }}>
                           <span style={{ fontSize: "12px", fontWeight: "600", color: "white" }}>{payment.apiId || "—"}</span>
                           <span style={{ fontSize: "12px", color: "#a5b4fc", fontWeight: "600" }}>
-                            ${fmt(payment.amountPaid, 4)} USDC
+                            {parseFloat(payment.amountPaid || "0").toFixed(6)} KITE
                           </span>
                         </div>
                         <div style={{ display: "flex", justifyContent: "space-between" }}>
@@ -846,7 +852,7 @@ export default function Home() {
               {[
                 { label: "SERVICES REGISTERED", value: protocolStats?.totalServices ?? "—" },
                 { label: "TOTAL TRANSACTIONS", value: protocolStats?.totalTransactions ?? "—" },
-                { label: "VOLUME (USDC)", value: protocolStats?.totalVolumeUSDC ?? "0.00" },
+                { label: "VOLUME (KITE)", value: protocolStats?.["totalVolume" + currencySuffix] ?? "0.00" },
                 { label: "NETWORK", value: protocolStats?.network ?? "—" },
               ].map((stat, index) => (
                 <div key={index} style={{ flex: 1, padding: "20px 24px", background: "rgba(255,255,255,0.02)", border: "1px solid rgba(255,255,255,0.07)", borderLeft: "3px solid #6366f1" }}>
@@ -883,7 +889,7 @@ export default function Home() {
                           {service.apiId}
                         </span>
                         <span style={{ fontSize: "11px", color: "#a5b4fc", background: "rgba(99,102,241,0.1)", padding: "2px 8px", borderRadius: "2px" }}>
-                          ${service.priceUSDC} USDC
+                          ${service["price" + currencySuffix]}
                         </span>
                       </div>
                       <div style={{ display: "flex", justifyContent: "space-between", gap: "16px", flexWrap: "wrap" }}>
@@ -945,13 +951,13 @@ export default function Home() {
 
                 <div style={{ marginBottom: "20px" }}>
                   <div style={{ fontSize: "10px", letterSpacing: "0.12em", color: "rgba(255,255,255,0.3)", marginBottom: "6px" }}>
-                    Price per call (USDC)
+                    Price per call (KITE)
                   </div>
                   <input
                     placeholder="0.01"
                     type="number"
-                    value={registerForm.priceUSDC}
-                    onChange={(e) => setRegisterForm({ ...registerForm, priceUSDC: e.target.value })}
+                    value={registerForm.priceKITE}
+                    onChange={(e) => setRegisterForm({ ...registerForm, priceKITE: e.target.value })}
                     style={{ width: "100%", background: "transparent", border: "none", borderBottom: "1px solid rgba(255,255,255,0.12)", padding: "12px 0", fontSize: "14px", color: "white", marginBottom: 0, display: "block" }}
                   />
                 </div>

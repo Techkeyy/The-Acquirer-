@@ -63,6 +63,7 @@ async function getStatus() {
       totalDeposited: "1.0",
       totalSpent: "0.0",
       remainingBudget: "1.0",
+      currency: "KITE",
       paymentCount: 0,
       network: deployment.network || "offline",
       chainConnected: false,

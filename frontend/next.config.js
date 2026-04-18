@@ -1,9 +1,16 @@
 // File: Desktop/The-Acquirer/frontend/next.config.js
-// File: Desktop/The-Acquirer/frontend/next.config.js
+/** @type {import('next').NextConfig} */
 const nextConfig = {
 	async rewrites() {
-		return [{ source: "/api/:path*", destination: "http://localhost:4000/:path*" }];
-	},
+		const backendUrl = process.env.NEXT_PUBLIC_API_URL
+			|| "http://localhost:4000";
+		return [
+			{
+				source: "/api/:path*",
+				destination: `${backendUrl}/:path*`
+			}
+		];
+	}
 };
 
 module.exports = nextConfig;

@@ -4,6 +4,7 @@ require("dotenv").config({
 });
 
 const registryLoader = require("./registryLoader");
+const chainRegistry = require("./chainRegistry");
 const paymentService = require("./paymentService");
 const executor = require("./executor");
 
@@ -93,7 +94,7 @@ function buildFallbackSummary(successfulResults) {
 
 async function decomposeTask(task, availableAPIs, budget) {
   const apiList = availableAPIs
-    .map((api) => `- ${api.id}: ${api.description} (cost: $${api.costUSDC} USDC)`)
+    .map((api) => `- ${api.id}: ${api.description} (cost: $${api.costUSDC} KITE)`)
     .join("\n");
 
   const prompt = `You are an AI orchestrator selecting specialist agents.
@@ -103,7 +104,7 @@ User task: "${task}"
 Available agents:
 ${apiList}
 
-Budget: $${budget} USDC
+Budget: $${budget} KITE
 
 RULES:
 1. Select ALL agents whose data would help answer this task
@@ -156,7 +157,7 @@ async function runSingleAgent(api, task, dryRun, stepNum) {
         amountUSDC: api.costUSDC,
       };
     } else {
-      agentLog_("PAY", `Paying $${api.costUSDC} USDC...`);
+      agentLog_("PAY", `Paying $${api.costUSDC} KITE...`);
       paymentResult = await paymentService.recordPayment(
         api.id,
         api.costUSDC,
@@ -214,7 +215,7 @@ async function runAgent(task, options = {}) {
     const statusData = dryRun ? { remainingBudget: "1.0" } : await paymentService.getStatus();
     const budget = dryRun ? 1.0 : parseFloat(statusData.remainingBudget || "0");
 
-    log(1, "PLAN", `Budget available: $${budget} USDC${dryRun ? " (dry run)" : " (live)"}`);
+    log(1, "PLAN", `Budget available: $${budget} KITE${dryRun ? " (dry run)" : " (live)"}`);
 
     if (budget <= 0 && !dryRun) {
       log(1, "PLAN", "Budget exhausted. Cannot proceed.");
@@ -230,8 +231,9 @@ async function runAgent(task, options = {}) {
     }
 
     log(2, "DECOMPOSE", "Analyzing task and selecting specialist agents...");
+    log(2, "DECOMPOSE", "Querying on-chain API registry on Kite chain...");
 
-    const allAPIs = registryLoader.getAllAPIs();
+    const allAPIs = await chainRegistry.getAPIsFromChain();
     let selectedIds = [];
 
     if (dryRun) {
@@ -245,8 +247,7 @@ async function runAgent(task, options = {}) {
         selectedIds = await decomposeTask(task, allAPIs, budget);
         log(2, "DECOMPOSE", `Groq selected agents: ${selectedIds.join(", ")}`);
       } catch (e) {
-        const fallback = registryLoader
-          .getAPIsUnderBudget(budget)
+        const fallback = (await chainRegistry.getAPIsUnderBudgetFromChain(budget))
           .filter((api) => !api.requiresKey)
           .slice(0, 2)
           .map((api) => api.id);
@@ -271,12 +272,13 @@ async function runAgent(task, options = {}) {
       };
     }
 
+    const allChainAPIs = await chainRegistry.getAPIsFromChain();
     const selectedAPIs = selectedIds
-      .map((id) => registryLoader.getAPIById(id))
+      .map((id) => allChainAPIs.find(a => a.id === id || a.chainId === id))
       .filter(Boolean);
 
     const totalCost = selectedAPIs.reduce((sum, api) => sum + api.costUSDC, 0);
-    log(3, "VALIDATE", `Total cost for ${selectedAPIs.length} agents: $${totalCost.toFixed(4)} USDC`);
+    log(3, "VALIDATE", `Total cost for ${selectedAPIs.length} agents: $${totalCost.toFixed(4)} KITE`);
 
     if (totalCost > budget && !dryRun) {
       log(3, "VALIDATE", "Insufficient budget for full plan. Reducing to affordable subset.");
@@ -290,13 +292,13 @@ async function runAgent(task, options = {}) {
       }
       selectedAPIs.length = 0;
       selectedAPIs.push(...affordable);
-      log(3, "VALIDATE", `Reduced to ${selectedAPIs.length} agents: $${running.toFixed(4)} USDC`);
+      log(3, "VALIDATE", `Reduced to ${selectedAPIs.length} agents: $${running.toFixed(4)} KITE`);
     }
 
     log(3, "VALIDATE", `Dispatching ${selectedAPIs.length} agents ${dryRun ? "in parallel" : "sequentially"}...`);
-    log(4, "DISPATCH", `Firing ${selectedAPIs.length} agents ${dryRun ? "simultaneously" : "one at a time"}`);
+    log(4, "DISPATCH", `Dispatching ${selectedAPIs.length} agents sequentially on Kite chain`);
     selectedAPIs.forEach((api, i) => {
-      log(4, "DISPATCH", `Agent ${i + 1}: ${api.name} ($${api.costUSDC} USDC)`);
+      log(4, "DISPATCH", `Agent ${i + 1}: ${api.name} ($${api.costUSDC} KITE)`);
     });
 
     if (dryRun) {
@@ -318,7 +320,7 @@ async function runAgent(task, options = {}) {
     totalCostUSDC = successfulResults.reduce((sum, result) => sum + (result.amountUSDC || 0), 0);
     txHashes = successfulResults.map((result) => result.txHash).filter(Boolean);
 
-    log(4, "DISPATCH", `Parallel execution complete. ${successfulResults.length}/${selectedAPIs.length} succeeded. Total cost: $${totalCostUSDC.toFixed(4)} USDC`);
+    log(4, "DISPATCH", `Sequential execution complete. ${successfulResults.length}/${selectedAPIs.length} succeeded. Total cost: $${totalCostUSDC.toFixed(4)} KITE`);
     if (txHashes.length > 0) {
       log(4, "DISPATCH", `On-chain receipts: ${txHashes.join(", ")}`);
     }
@@ -358,7 +360,7 @@ Be specific — use the actual numbers and data provided.`,
       log(5, "SYNTHESIZE", `💡 ${summary}`);
     } catch (e) {
       summary = buildFallbackSummary(successfulResults);
-      log(5, "SYNTHESIZE", "Claude synthesis failed, returning fallback summary.");
+      log(5, "SYNTHESIZE", "Groq synthesis failed, returning fallback summary.");
     }
 
     if (!summary || summary.trim() === "") {
@@ -374,7 +376,7 @@ Be specific — use the actual numbers and data provided.`,
       summary = parts.join(". ") + ".";
     }
 
-    log(6, "REPORT", `Orchestration complete. ${selectedAPIs.length} agents hired. $${totalCostUSDC.toFixed(4)} USDC spent. ${txHashes.length} on-chain receipts.`);
+    log(6, "REPORT", `Orchestration complete. ${selectedAPIs.length} agents hired. $${totalCostUSDC.toFixed(4)} KITE spent. ${txHashes.length} on-chain receipts.`);
 
     finalAnswer = {
       summary: summary,
