@@ -68,6 +68,23 @@ app.get("/history", async (req, res) => {
   }
 });
 
+app.get("/leaderboard", async (req, res) => {
+  try {
+    const vault = getVault();
+    if (!vault) return res.json({ leaderboard: [] });
+    const [ids, scores, calls] = await vault.getReputationLeaderboard();
+    const leaderboard = ids.map((id, i) => ({
+      serviceId: Number(id),
+      reputationScore: Number(scores[i]),
+      totalCalls: Number(calls[i])
+    }));
+    leaderboard.sort((a, b) => b.reputationScore - a.reputationScore);
+    res.json({ leaderboard });
+  } catch (err) {
+    res.status(200).json({ leaderboard: [], error: err.message });
+  }
+});
+
 app.get("/registry", async (req, res) => {
   try { res.json({ apis: registry }); }
   catch (err) { res.status(500).json({ error: err.message }); }
@@ -167,6 +184,26 @@ app.post("/purchase-api", async (req, res) => {
       apiId,
       blockNumber: receipt.blockNumber,
       message: `API "${apiId}" purchased on-chain`
+    });
+  } catch (err) {
+    res.status(200).json({ success: false, error: err.message });
+  }
+});
+
+app.post("/dispute", async (req, res) => {
+  try {
+    const { serviceId, reason } = req.body;
+    if (serviceId === undefined) {
+      return res.status(400).json({ error: "serviceId required" });
+    }
+    const vault = getVault();
+    if (!vault) return res.status(503).json({ error: "Chain not available" });
+    const tx = await vault.fileDispute(serviceId, reason || "Poor service quality");
+    const receipt = await tx.wait();
+    res.json({
+      success: true,
+      txHash: receipt.hash,
+      message: "Dispute filed on-chain"
     });
   } catch (err) {
     res.status(200).json({ success: false, error: err.message });

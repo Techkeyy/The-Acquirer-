@@ -51,6 +51,7 @@ export default function Home() {
   const [error, setError] = useState("");
   const [marketplace, setMarketplace] = useState([]);
   const [protocolStats, setProtocolStats] = useState(null);
+  const [leaderboard, setLeaderboard] = useState([]);
   const [activeTab, setActiveTab] = useState("agent");
   const [activeAgents, setActiveAgents] = useState([]);
   const currencySuffix = ["USD", "C"].join("");
@@ -127,6 +128,15 @@ export default function Home() {
       .then((data) => setProtocolStats(data))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    if (activeTab === "marketplace") {
+      fetch("/api/leaderboard")
+        .then((response) => response.json())
+        .then((data) => setLeaderboard(data.leaderboard || []))
+        .catch(() => {});
+    }
+  }, [activeTab]);
 
   async function handleRun(dryRun) {
     if (!task.trim()) {
@@ -862,6 +872,52 @@ export default function Home() {
               ))}
             </div>
 
+            <div style={{ marginBottom: "24px" }}>
+              <div style={{ fontSize: "10px", letterSpacing: "0.15em", color: "rgba(255,255,255,0.25)", marginBottom: "12px" }}>
+                REPUTATION LEADERBOARD
+              </div>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {leaderboard.map((entry, i) => {
+                  const service = marketplace.find((s) => s.id === entry.serviceId);
+                  const score = entry.reputationScore;
+                  const color = score >= 70 ? "#10b981" : score >= 40 ? "#f59e0b" : "#ef4444";
+                  return (
+                    <div
+                      key={i}
+                      style={{
+                        flex: "1 1 calc(33% - 8px)",
+                        background: "rgba(255,255,255,0.02)",
+                        border: `1px solid ${color}33`,
+                        borderLeft: `3px solid ${color}`,
+                        padding: "16px",
+                        borderRadius: "4px",
+                      }}
+                    >
+                      <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "8px" }}>
+                        <span style={{ fontSize: "12px", fontWeight: "700", color: "white" }}>
+                          #{i + 1} {service?.name || `Service ${entry.serviceId}`}
+                        </span>
+                        <span style={{ fontSize: "11px", color: color, fontWeight: "700" }}>
+                          {score}/100
+                        </span>
+                      </div>
+                      <div style={{ height: "4px", background: "rgba(255,255,255,0.06)", borderRadius: "2px", marginBottom: "8px" }}>
+                        <div style={{ height: "100%", width: `${score}%`, background: color, borderRadius: "2px", transition: "width 0.5s ease" }} />
+                      </div>
+                      <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)" }}>
+                        {entry.totalCalls} calls · stake protected
+                      </div>
+                    </div>
+                  );
+                })}
+                {leaderboard.length === 0 && (
+                  <div style={{ color: "rgba(255,255,255,0.2)", fontStyle: "italic", fontSize: "12px" }}>
+                    — loading reputation data —
+                  </div>
+                )}
+              </div>
+            </div>
+
             <div style={{ display: "flex", gap: "32px", alignItems: "flex-start" }}>
               <div style={{ flex: "0 0 60%" }}>
                 <div style={{ fontSize: "10px", letterSpacing: "0.15em", color: "rgba(255,255,255,0.22)", marginBottom: "10px" }}>
@@ -900,6 +956,41 @@ export default function Home() {
                           {service.totalCalls} calls · {service.totalEarned} ETH earned
                         </div>
                       </div>
+                      <button
+                        onClick={async () => {
+                          const res = await fetch("/api/dispute", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              serviceId: service.id,
+                              reason: "Quality dispute from UI",
+                            }),
+                          });
+                          const d = await res.json();
+                          if (d.success) {
+                            alert("Dispute filed: " + d.txHash);
+                            fetch("/api/marketplace")
+                              .then((r) => r.json())
+                              .then((d) => setMarketplace(d.services || []));
+                            fetch("/api/leaderboard")
+                              .then((r) => r.json())
+                              .then((d) => setLeaderboard(d.leaderboard || []));
+                          }
+                        }}
+                        style={{
+                          background: "transparent",
+                          border: "1px solid rgba(239,68,68,0.2)",
+                          color: "rgba(239,68,68,0.5)",
+                          padding: "4px 10px",
+                          fontSize: "10px",
+                          cursor: "pointer",
+                          borderRadius: "2px",
+                          marginTop: "8px",
+                          letterSpacing: "0.08em",
+                        }}
+                      >
+                        FILE DISPUTE
+                      </button>
                     </div>
                   ))
                 )}

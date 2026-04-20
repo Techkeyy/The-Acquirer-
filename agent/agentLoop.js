@@ -94,7 +94,7 @@ function buildFallbackSummary(successfulResults) {
 
 async function decomposeTask(task, availableAPIs, budget) {
   const apiList = availableAPIs
-    .map((api) => `- ${api.id}: ${api.description} (cost: $${api.costUSDC} KITE)`)
+    .map((api) => `- ${api.id}: ${api.description} (cost: $${api.costUSDC}, reputation: ${api.reputationScore || 50}/100, calls: ${api.totalCalls || 0})`)
     .join("\n");
 
   const prompt = `You are an AI orchestrator selecting specialist agents.
@@ -108,12 +108,13 @@ Budget: $${budget} KITE
 
 RULES:
 1. Select ALL agents whose data would help answer this task
-2. If the task mentions crypto, prices, or portfolio → include crypto-price agent
-3. If the task mentions weather, temperature, or outside → include weather-basic agent  
-4. If the task needs analysis, reasoning, or a smart answer → include ai-inference agent
-5. Never select more than 3 agents
-6. Never exceed the budget
-7. Always select at least 1 agent
+2. Select agents based on cost AND reputation score. Prefer higher reputation scores. Avoid slashed providers.
+3. If the task mentions crypto, prices, or portfolio → include crypto-price agent
+4. If the task mentions weather, temperature, or outside → include weather-basic agent  
+5. If the task needs analysis, reasoning, or a smart answer → include ai-inference agent
+6. Never select more than 3 agents
+7. Never exceed the budget
+8. Always select at least 1 agent
 
 For the task "${task}":
 - Does it mention crypto/bitcoin/portfolio/price? → include crypto-price
@@ -185,6 +186,7 @@ async function runSingleAgent(api, task, dryRun, stepNum) {
     }
 
     agentLog_("EXECUTE", `Success: ${JSON.stringify(result.data).slice(0, 100)}`);
+    log(4, "EXECUTE", `[${api.name}] Reputation score: ${api.reputationScore || 50}/100`);
 
     return {
       api,
@@ -234,21 +236,22 @@ async function runAgent(task, options = {}) {
     log(2, "DECOMPOSE", "Querying on-chain API registry on Kite chain...");
 
     const allAPIs = await chainRegistry.getAPIsFromChain();
+    const availableAPIs = allAPIs.filter((api) => !api.slashed);
     let selectedIds = [];
 
     if (dryRun) {
-      selectedIds = allAPIs
+      selectedIds = availableAPIs
         .filter((api) => !api.requiresKey)
         .slice(0, 2)
         .map((api) => api.id);
       log(2, "DECOMPOSE", `[DRY RUN] Selected: ${selectedIds.join(", ")}`);
     } else {
       try {
-        selectedIds = await decomposeTask(task, allAPIs, budget);
+        selectedIds = await decomposeTask(task, availableAPIs, budget);
         log(2, "DECOMPOSE", `Groq selected agents: ${selectedIds.join(", ")}`);
       } catch (e) {
         const fallback = (await chainRegistry.getAPIsUnderBudgetFromChain(budget))
-          .filter((api) => !api.requiresKey)
+          .filter((api) => !api.requiresKey && !api.slashed)
           .slice(0, 2)
           .map((api) => api.id);
         if (fallback.length > 0) {
@@ -275,6 +278,7 @@ async function runAgent(task, options = {}) {
     const allChainAPIs = await chainRegistry.getAPIsFromChain();
     const selectedAPIs = selectedIds
       .map((id) => allChainAPIs.find(a => a.id === id || a.chainId === id))
+      .filter((api) => api && !api.slashed)
       .filter(Boolean);
 
     const totalCost = selectedAPIs.reduce((sum, api) => sum + api.costUSDC, 0);

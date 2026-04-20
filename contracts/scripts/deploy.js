@@ -70,9 +70,10 @@ async function main() {
   ];
 
   for (const s of services) {
-    const tx = await vault.registerAPIForProvider(
+    const tx = await vault.registerAPIWithStake(
       s.apiId, s.name, s.endpoint, s.price,
-      PROVIDER
+      PROVIDER,
+      { value: ethers.parseEther("0.001") }
     );
     await tx.wait();
     console.log(`✅ Registered: ${s.name} → provider: ${PROVIDER}`);

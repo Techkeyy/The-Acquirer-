@@ -27,6 +27,10 @@ contract BudgetVault {
 		bool active;
 		uint256 totalCalls;
 		uint256 totalEarned;
+		uint256 stakeAmount;
+		uint256 reputationScore;
+		uint256 disputeCount;
+		bool slashed;
 	}
 
 	mapping(uint256 => Payment) public payments;
@@ -35,12 +39,19 @@ contract BudgetVault {
 	mapping(string => uint256) public apiIdToIndex;
 	mapping(string => bool) public apiIdExists;
 	uint256 public serviceCount;
+	uint256 public constant MIN_STAKE = 0.001 ether;
+	uint256 public constant SLASH_AMOUNT = 0.0005 ether;
+	mapping(address => uint256) public providerReputation;
 
 	event Deposited(address indexed from, uint256 amount);
 	event PaymentMade(uint256 indexed paymentId, string apiId, uint256 amount, string note);
 	event BudgetExhausted(uint256 totalSpent);
 	event APIRegistered(uint256 indexed serviceId, string apiId, address indexed provider, uint256 pricePerCall);
 	event APIPurchased(uint256 indexed serviceId, string apiId, address indexed buyer, uint256 amountPaid, uint256 paymentId);
+	event ServiceStaked(uint256 indexed serviceId, address indexed provider, uint256 amount);
+	event DisputeFiled(uint256 indexed serviceId, address indexed filer, string reason);
+	event ProviderSlashed(uint256 indexed serviceId, address indexed provider, uint256 amount);
+	event ReputationUpdated(uint256 indexed serviceId, uint256 oldScore, uint256 newScore);
 
 	constructor() {
 		owner = msg.sender;
@@ -116,11 +127,16 @@ contract BudgetVault {
 			provider: payable(msg.sender),
 			active: true,
 			totalCalls: 0,
-			totalEarned: 0
+			totalEarned: 0,
+			stakeAmount: 0,
+			reputationScore: 50,
+			disputeCount: 0,
+			slashed: false
 		});
 		apiIdToIndex[apiId] = serviceId;
 		apiIdExists[apiId] = true;
 		serviceCount++;
+		providerReputation[msg.sender] = 50;
 		emit APIRegistered(serviceId, apiId, msg.sender, pricePerCall);
 		return serviceId;
 	}
@@ -147,12 +163,56 @@ contract BudgetVault {
 			provider: providerAddress,
 			active: true,
 			totalCalls: 0,
-			totalEarned: 0
+			totalEarned: 0,
+			stakeAmount: 0,
+			reputationScore: 50,
+			disputeCount: 0,
+			slashed: false
 		});
 		apiIdToIndex[apiId] = serviceId;
 		apiIdExists[apiId] = true;
 		serviceCount++;
+		providerReputation[providerAddress] = 50;
 		emit APIRegistered(serviceId, apiId, providerAddress, pricePerCall);
+		return serviceId;
+	}
+
+	function registerAPIWithStake(
+		string calldata apiId,
+		string calldata name,
+		string calldata endpoint,
+		uint256 pricePerCall,
+		address payable providerAddress
+	) external payable onlyOwner returns (uint256) {
+		require(bytes(apiId).length > 0, "apiId required");
+		require(!apiIdExists[apiId], "apiId already registered");
+		require(pricePerCall > 0, "Price must be > 0");
+		require(msg.value >= MIN_STAKE, "Must stake minimum 0.001 ETH");
+		require(providerAddress != address(0), "Invalid provider");
+
+		uint256 serviceId = serviceCount;
+		apiServices[serviceId] = APIService({
+			id: serviceId,
+			apiId: apiId,
+			name: name,
+			endpoint: endpoint,
+			pricePerCall: pricePerCall,
+			provider: providerAddress,
+			active: true,
+			totalCalls: 0,
+			totalEarned: 0,
+			stakeAmount: msg.value,
+			reputationScore: 50,
+			disputeCount: 0,
+			slashed: false
+		});
+		apiIdToIndex[apiId] = serviceId;
+		apiIdExists[apiId] = true;
+		serviceCount++;
+		providerReputation[providerAddress] = 50;
+
+		emit APIRegistered(serviceId, apiId, providerAddress, pricePerCall);
+		emit ServiceStaked(serviceId, providerAddress, msg.value);
 		return serviceId;
 	}
 
@@ -161,6 +221,7 @@ contract BudgetVault {
 		uint256 idx = apiIdToIndex[apiId];
 		APIService storage service = apiServices[idx];
 		require(service.active, "API not active");
+		require(!service.slashed, "Provider has been slashed");
 		require(remainingBudget >= service.pricePerCall, "Insufficient budget");
 
 		payments[paymentCount] = Payment({
@@ -177,9 +238,92 @@ contract BudgetVault {
 		service.totalCalls += 1;
 		service.totalEarned += service.pricePerCall;
 		service.provider.transfer(service.pricePerCall);
+		uint256 oldScore = service.reputationScore;
+		service.reputationScore = service.reputationScore < 98 ? service.reputationScore + 2 : 100;
+		providerReputation[service.provider] = service.reputationScore;
+		emit ReputationUpdated(idx, oldScore, service.reputationScore);
 
 		emit APIPurchased(idx, apiId, msg.sender, service.pricePerCall, paymentCount - 1);
 		if (remainingBudget == 0) emit BudgetExhausted(totalSpent);
+	}
+
+	function fileDispute(uint256 serviceId, string calldata reason) external {
+		require(serviceId < serviceCount, "Service not found");
+		APIService storage service = apiServices[serviceId];
+		require(service.active, "Service not active");
+		require(!service.slashed, "Already slashed");
+
+		service.disputeCount += 1;
+
+		uint256 oldScore = service.reputationScore;
+		if (service.reputationScore >= 10) {
+			service.reputationScore -= 10;
+		} else {
+			service.reputationScore = 0;
+		}
+		providerReputation[service.provider] = service.reputationScore;
+
+		emit DisputeFiled(serviceId, msg.sender, reason);
+		emit ReputationUpdated(serviceId, oldScore, service.reputationScore);
+
+		if (service.disputeCount >= 3) {
+			_slashProvider(serviceId);
+		}
+	}
+
+	function _slashProvider(uint256 serviceId) internal {
+		APIService storage service = apiServices[serviceId];
+		require(!service.slashed, "Already slashed");
+
+		service.slashed = true;
+		service.active = false;
+		service.reputationScore = 0;
+		providerReputation[service.provider] = 0;
+
+		uint256 slashAmt = service.stakeAmount > SLASH_AMOUNT ? SLASH_AMOUNT : service.stakeAmount;
+		service.stakeAmount -= slashAmt;
+
+		if (slashAmt > 0) {
+			(bool sent,) = payable(owner).call{value: slashAmt}("");
+			require(sent, "Slash transfer failed");
+		}
+
+		emit ProviderSlashed(serviceId, service.provider, slashAmt);
+	}
+
+	function goodServiceCall(uint256 serviceId) external onlyOwner {
+		require(serviceId < serviceCount, "Service not found");
+		APIService storage service = apiServices[serviceId];
+
+		uint256 oldScore = service.reputationScore;
+		if (service.reputationScore < 100) {
+			service.reputationScore += 2;
+			if (service.reputationScore > 100) {
+				service.reputationScore = 100;
+			}
+		}
+		service.totalCalls += 1;
+		providerReputation[service.provider] = service.reputationScore;
+
+		emit ReputationUpdated(serviceId, oldScore, service.reputationScore);
+	}
+
+	function getReputationLeaderboard()
+		external view returns (
+			uint256[] memory ids,
+			uint256[] memory scores,
+			uint256[] memory calls
+		) {
+		ids = new uint256[](serviceCount);
+		scores = new uint256[](serviceCount);
+		calls = new uint256[](serviceCount);
+
+		for (uint256 i = 0; i < serviceCount; i++) {
+			ids[i] = i;
+			scores[i] = apiServices[i].reputationScore;
+			calls[i] = apiServices[i].totalCalls;
+		}
+		return (ids, scores, calls);
 	}
 
 	function getService(uint256 serviceId) external view returns (APIService memory) {
@@ -219,7 +363,11 @@ contract BudgetVault {
 			provider: payable(owner),
 			active: true,
 			totalCalls: 0,
-			totalEarned: 0
+			totalEarned: 0,
+			stakeAmount: 0,
+			reputationScore: 50,
+			disputeCount: 0,
+			slashed: false
 		});
 		apiIdToIndex["weather-v1"] = 0;
 		apiIdExists["weather-v1"] = true;
@@ -233,7 +381,11 @@ contract BudgetVault {
 			provider: payable(owner),
 			active: true,
 			totalCalls: 0,
-			totalEarned: 0
+			totalEarned: 0,
+			stakeAmount: 0,
+			reputationScore: 50,
+			disputeCount: 0,
+			slashed: false
 		});
 		apiIdToIndex["crypto-price-v1"] = 1;
 		apiIdExists["crypto-price-v1"] = true;
@@ -247,7 +399,11 @@ contract BudgetVault {
 			provider: payable(owner),
 			active: true,
 			totalCalls: 0,
-			totalEarned: 0
+			totalEarned: 0,
+			stakeAmount: 0,
+			reputationScore: 50,
+			disputeCount: 0,
+			slashed: false
 		});
 		apiIdToIndex["ai-inference-v1"] = 2;
 		apiIdExists["ai-inference-v1"] = true;

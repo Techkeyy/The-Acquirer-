@@ -57,7 +57,11 @@ function serviceToAPI(s) {
     description: `On-chain registered service: ${s.name}`,
     endpoint: s.endpoint,
     costUSDC: parseFloat(priceUSDC.toFixed(4)),
-    qualityScore: Number(s.reputationScore || 7),
+    qualityScore: Number(s.reputationScore || 50),
+    stakeAmount: ethers.formatEther(s.stakeAmount || 0n),
+    reputationScore: Number(s.reputationScore || 50),
+    disputeCount: Number(s.disputeCount || 0),
+    slashed: s.slashed || false,
     category: s.apiId.includes("weather") ? "weather"
       : s.apiId.includes("crypto") ? "data" : "ai",
     requiresKey: s.apiId.includes("ai"),

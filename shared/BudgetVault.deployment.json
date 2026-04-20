@@ -1,5 +1,5 @@
 {
-  "contractAddress": "0xBbc840d3dfAb46DcE56014E08F01e73A34882D6C",
+  "contractAddress": "0x7b397100554Fc839dD1E46F2f1220fE6617e0c7D",
   "abi": [
     {
       "inputs": [],
@@ -112,6 +112,31 @@
         {
           "indexed": true,
           "internalType": "uint256",
+          "name": "serviceId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "filer",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "reason",
+          "type": "string"
+        }
+      ],
+      "name": "DisputeFiled",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
           "name": "paymentId",
           "type": "uint256"
         },
@@ -136,6 +161,107 @@
       ],
       "name": "PaymentMade",
       "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "serviceId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "provider",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "ProviderSlashed",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "serviceId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "oldScore",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "newScore",
+          "type": "uint256"
+        }
+      ],
+      "name": "ReputationUpdated",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "serviceId",
+          "type": "uint256"
+        },
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "provider",
+          "type": "address"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "ServiceStaked",
+      "type": "event"
+    },
+    {
+      "inputs": [],
+      "name": "MIN_STAKE",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "SLASH_AMOUNT",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
     },
     {
       "inputs": [
@@ -229,6 +355,26 @@
           "internalType": "uint256",
           "name": "totalEarned",
           "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "stakeAmount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "reputationScore",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "disputeCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bool",
+          "name": "slashed",
+          "type": "bool"
         }
       ],
       "stateMutability": "view",
@@ -265,6 +411,24 @@
       "name": "deposit",
       "outputs": [],
       "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "serviceId",
+          "type": "uint256"
+        },
+        {
+          "internalType": "string",
+          "name": "reason",
+          "type": "string"
+        }
+      ],
+      "name": "fileDispute",
+      "outputs": [],
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -340,6 +504,29 @@
       "type": "function"
     },
     {
+      "inputs": [],
+      "name": "getReputationLeaderboard",
+      "outputs": [
+        {
+          "internalType": "uint256[]",
+          "name": "ids",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "scores",
+          "type": "uint256[]"
+        },
+        {
+          "internalType": "uint256[]",
+          "name": "calls",
+          "type": "uint256[]"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
       "inputs": [
         {
           "internalType": "uint256",
@@ -395,6 +582,26 @@
               "internalType": "uint256",
               "name": "totalEarned",
               "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "stakeAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "reputationScore",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "disputeCount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "slashed",
+              "type": "bool"
             }
           ],
           "internalType": "struct BudgetVault.APIService",
@@ -461,6 +668,26 @@
               "internalType": "uint256",
               "name": "totalEarned",
               "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "stakeAmount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "reputationScore",
+              "type": "uint256"
+            },
+            {
+              "internalType": "uint256",
+              "name": "disputeCount",
+              "type": "uint256"
+            },
+            {
+              "internalType": "bool",
+              "name": "slashed",
+              "type": "bool"
             }
           ],
           "internalType": "struct BudgetVault.APIService",
@@ -469,6 +696,19 @@
         }
       ],
       "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "serviceId",
+          "type": "uint256"
+        }
+      ],
+      "name": "goodServiceCall",
+      "outputs": [],
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -554,6 +794,25 @@
           "internalType": "string",
           "name": "txNote",
           "type": "string"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "providerReputation",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
         }
       ],
       "stateMutability": "view",
@@ -651,6 +910,45 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "string",
+          "name": "apiId",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "name",
+          "type": "string"
+        },
+        {
+          "internalType": "string",
+          "name": "endpoint",
+          "type": "string"
+        },
+        {
+          "internalType": "uint256",
+          "name": "pricePerCall",
+          "type": "uint256"
+        },
+        {
+          "internalType": "address payable",
+          "name": "providerAddress",
+          "type": "address"
+        }
+      ],
+      "name": "registerAPIWithStake",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "payable",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "remainingBudget",
       "outputs": [
@@ -718,6 +1016,6 @@
     }
   ],
   "network": "kite_testnet",
-  "deployedAt": "2026-04-18T16:36:47.887Z",
+  "deployedAt": "2026-04-20T01:34:54.034Z",
   "deployer": "0xbE12fc7aADE0631c313383BDb1d686C77db08400"
 }
