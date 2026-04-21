@@ -4,9 +4,12 @@ const express = require("express");
 const cors = require("cors");
 const { ethers } = require("ethers");
 const { runAgent } = require("../agent/agentLoop");
+const { x402Payment } = require("./x402");
 const paymentService = require("../agent/paymentService");
 const registry = require("../agent/registry.json");
 const deployment = require("../shared/BudgetVault.deployment.json");
+
+const recentAgentCalls = [];
 
 function getVault() {
   try {
@@ -58,6 +61,105 @@ app.post("/run-agent", async (req, res) => {
   } catch (err) { res.status(500).json({ error: err.message, stack: err.stack }); }
 });
 
+app.post(
+  "/agent/execute",
+  x402Payment(0.00002),
+  async (req, res) => {
+    try {
+      const { task, maxCost } = req.body || {};
+      if (!task) {
+        return res.status(400).json({
+          error: "task is required",
+          example: { task: "What is the Bitcoin price?" }
+        });
+      }
+
+      console.log("[AGENT ENDPOINT] Task:", task);
+      console.log("[AGENT ENDPOINT] Paid by:", req.payment?.sender);
+
+      const result = await runAgent(task, {
+        dryRun: false,
+        maxSteps: 5,
+        maxCost
+      });
+
+      if (result.status === "complete") {
+        recentAgentCalls.unshift({
+          task: task.slice(0, 60),
+          sender: req.payment?.sender,
+          txHash: req.payment?.txHash,
+          answer: result.finalResult?.summary?.slice(0, 80),
+          cost: result.totalCostUSDC,
+          timestamp: new Date().toISOString()
+        });
+        if (recentAgentCalls.length > 10) recentAgentCalls.pop();
+      }
+
+      res.json({
+        success: result.status === "complete",
+        task,
+        answer: result.finalResult?.summary || null,
+        data: result.finalResult?.agentResults || [],
+        cost: result.totalCostUSDC,
+        txHashes: result.txHashes,
+        payment: {
+          verified: true,
+          receipt: req.payment?.txHash,
+          sender: req.payment?.sender,
+          amount: req.payment?.amount
+        },
+        protocol: "x402",
+        network: "kite-testnet"
+      });
+    } catch (err) {
+      res.status(500).json({ error: err.message });
+    }
+  }
+);
+
+app.get("/agent/info", (req, res) => {
+  res.json({
+    name: "The Acquirer",
+    description: "On-chain API acquisition protocol for AI agents",
+    protocol: "x402",
+    version: "1.0",
+    network: "kite-testnet",
+    chainId: 2368,
+    contract: deployment.contractAddress,
+    endpoints: {
+      execute: {
+        path: "/agent/execute",
+        method: "POST",
+        payment: "x402",
+        cost: "0.00002 ETH",
+        body: {
+          task: "string — plain language task",
+          maxCost: "number — optional budget limit in ETH"
+        }
+      },
+      marketplace: {
+        path: "/marketplace",
+        method: "GET",
+        payment: "free",
+        description: "List all registered API services"
+      },
+      leaderboard: {
+        path: "/leaderboard",
+        method: "GET",
+        payment: "free",
+        description: "Reputation scores for all providers"
+      }
+    },
+    howToUse: [
+      "1. Call POST /agent/execute with your task",
+      "2. Receive HTTP 402 with payment details and nonce",
+      "3. Send ETH to the contract address",
+      "4. Retry with X-Payment-Receipt, X-Payment-Sender, X-Payment-Nonce headers",
+      "5. Receive your answer"
+    ]
+  });
+});
+
 app.get("/history", async (req, res) => {
   try {
     const payments = await paymentService.getPaymentHistory();
@@ -66,6 +168,10 @@ app.get("/history", async (req, res) => {
     // Always return valid JSON — never 500
     res.status(200).json({ payments: [], error: err.message });
   }
+});
+
+app.get("/agent-calls", (req, res) => {
+  res.json({ calls: recentAgentCalls });
 });
 
 app.get("/leaderboard", async (req, res) => {
