@@ -110,6 +110,8 @@ export default function Home() {
 
   const topServices = useMemo(() => marketplace.slice(0, 6), [marketplace]);
   const topThree = leaderboard.slice(0, 3);
+  const protocolCurrency = protocolStats?.currency || "ETH";
+  const protocolVolume = protocolStats?.totalVolume ?? protocolStats?.totalVolumeUSDC ?? protocolStats?.totalVolumeETH ?? "—";
 
   useEffect(() => {
     const fetchLandingData = async () => {
@@ -148,7 +150,7 @@ export default function Home() {
   const heroStats = [
     { value: protocolStats?.totalServices ?? "—", label: "Services Registered" },
     { value: protocolStats?.totalTransactions ?? "—", label: "Payments Processed" },
-    { value: protocolStats?.totalVolumeETH ?? "—", label: "ETH Volume" },
+    { value: protocolVolume, label: `${protocolCurrency} Volume` },
   ];
 
   return (

@@ -1,5 +1,5 @@
 {
-  "contractAddress": "0x7b397100554Fc839dD1E46F2f1220fE6617e0c7D",
+  "contractAddress": "0x1DA4d4bC04B897999CBb40Ed9A80Cd62F5526aaE",
   "abi": [
     {
       "inputs": [],
@@ -411,6 +411,19 @@
       "name": "deposit",
       "outputs": [],
       "stateMutability": "payable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "uint256",
+          "name": "amount",
+          "type": "uint256"
+        }
+      ],
+      "name": "depositUSDC",
+      "outputs": [],
+      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -982,6 +995,19 @@
       "type": "function"
     },
     {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "_usdcToken",
+          "type": "address"
+        }
+      ],
+      "name": "setUSDCToken",
+      "outputs": [],
+      "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
       "inputs": [],
       "name": "totalDeposited",
       "outputs": [
@@ -1009,6 +1035,32 @@
     },
     {
       "inputs": [],
+      "name": "usdcMode",
+      "outputs": [
+        {
+          "internalType": "bool",
+          "name": "",
+          "type": "bool"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
+      "name": "usdcToken",
+      "outputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "withdraw",
       "outputs": [],
       "stateMutability": "nonpayable",
@@ -1016,6 +1068,8 @@
     }
   ],
   "network": "kite_testnet",
-  "deployedAt": "2026-04-20T01:34:54.034Z",
-  "deployer": "0xbE12fc7aADE0631c313383BDb1d686C77db08400"
+  "deployedAt": "2026-04-22T07:24:03.486Z",
+  "deployer": "0xbE12fc7aADE0631c313383BDb1d686C77db08400",
+  "usdcAddress": "0x5e35985eABFfd78a6Fd0a8e5818e0D2cc28Baf84",
+  "usdcMode": true
 }

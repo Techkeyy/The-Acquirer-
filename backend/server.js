@@ -11,6 +11,22 @@ const deployment = require("../shared/BudgetVault.deployment.json");
 
 const recentAgentCalls = [];
 
+function summarizeAgentResult(result) {
+  const summary = result?.finalResult?.summary || result?.summary;
+  if (summary) return summary;
+
+  const agentResults = result?.finalResult?.agentResults || [];
+  const first = agentResults[0]?.data || {};
+  if (first.response) return String(first.response);
+  if (first.bitcoin?.usd != null) return `Bitcoin is at $${first.bitcoin.usd}`;
+  if (first.ethereum?.usd != null) return `Ethereum is at $${first.ethereum.usd}`;
+  if (first.city && first.temperature != null) {
+    return `The weather in ${first.city} is ${first.temperature}°C.`;
+  }
+
+  return null;
+}
+
 function getVault() {
   try {
     const provider = new ethers.JsonRpcProvider(
@@ -98,7 +114,7 @@ app.post(
       res.json({
         success: result.status === "complete",
         task,
-        answer: result.finalResult?.summary || null,
+        answer: summarizeAgentResult(result),
         data: result.finalResult?.agentResults || [],
         cost: result.totalCostUSDC,
         txHashes: result.txHashes,
@@ -117,47 +133,64 @@ app.post(
   }
 );
 
-app.get("/agent/info", (req, res) => {
-  res.json({
-    name: "The Acquirer",
-    description: "On-chain API acquisition protocol for AI agents",
-    protocol: "x402",
-    version: "1.0",
-    network: "kite-testnet",
-    chainId: 2368,
-    contract: deployment.contractAddress,
-    endpoints: {
-      execute: {
-        path: "/agent/execute",
-        method: "POST",
-        payment: "x402",
-        cost: "0.00002 ETH",
-        body: {
-          task: "string — plain language task",
-          maxCost: "number — optional budget limit in ETH"
+app.get("/agent/info", async (req, res) => {
+  try {
+    const status = await paymentService.getStatus();
+    const currency = status.currency || "ETH";
+    res.json({
+      name: "The Acquirer",
+      description: "On-chain API acquisition protocol for AI agents",
+      protocol: "x402",
+      version: "1.0",
+      network: "kite-testnet",
+      chainId: 2368,
+      contract: deployment.contractAddress,
+      currency,
+      endpoints: {
+        execute: {
+          path: "/agent/execute",
+          method: "POST",
+          payment: "x402",
+          cost: `0.00002 ${currency}`,
+          body: {
+            task: "string — plain language task",
+            maxCost: `number — optional budget limit in ${currency}`
+          }
+        },
+        marketplace: {
+          path: "/marketplace",
+          method: "GET",
+          payment: "free",
+          description: "List all registered API services"
+        },
+        leaderboard: {
+          path: "/leaderboard",
+          method: "GET",
+          payment: "free",
+          description: "Reputation scores for all providers"
         }
       },
-      marketplace: {
-        path: "/marketplace",
-        method: "GET",
-        payment: "free",
-        description: "List all registered API services"
-      },
-      leaderboard: {
-        path: "/leaderboard",
-        method: "GET",
-        payment: "free",
-        description: "Reputation scores for all providers"
-      }
-    },
-    howToUse: [
-      "1. Call POST /agent/execute with your task",
-      "2. Receive HTTP 402 with payment details and nonce",
-      "3. Send ETH to the contract address",
-      "4. Retry with X-Payment-Receipt, X-Payment-Sender, X-Payment-Nonce headers",
-      "5. Receive your answer"
-    ]
-  });
+      howToUse: [
+        "1. Call POST /agent/execute with your task",
+        "2. Receive HTTP 402 with payment details and nonce",
+        `3. Pay on-chain using ${currency}`,
+        "4. Retry with X-Payment-Receipt, X-Payment-Sender, X-Payment-Nonce headers",
+        "5. Receive your answer"
+      ]
+    });
+  } catch (err) {
+    res.json({
+      name: "The Acquirer",
+      description: "On-chain API acquisition protocol for AI agents",
+      protocol: "x402",
+      version: "1.0",
+      network: "kite-testnet",
+      chainId: 2368,
+      contract: deployment.contractAddress,
+      currency: "ETH",
+      error: err.message
+    });
+  }
 });
 
 app.get("/history", async (req, res) => {
@@ -203,13 +236,15 @@ app.post("/deposit", async (req, res) => {
 
 app.post("/reset-demo", async (req, res) => {
   try {
-    const result = await paymentService.depositBudget("0.05");
-    const status = await paymentService.getStatus();
+    const currentStatus = await paymentService.getStatus();
+    const resetAmount = currentStatus.currency === "USDC" ? "1000" : "0.05";
+    const result = await paymentService.depositBudget(resetAmount);
     res.json({
       success: true,
-      message: "Demo reset. Budget topped up by 0.05 ETH.",
+      message: `Demo reset. Budget topped up by ${resetAmount} ${currentStatus.currency}.`,
       txHash: result.txHash,
-      newBudget: status.remainingBudget
+      newBudget: currentStatus.remainingBudget,
+      currency: currentStatus.currency
     });
   } catch (err) {
     res.status(200).json({
@@ -221,26 +256,31 @@ app.post("/reset-demo", async (req, res) => {
 
 app.get("/marketplace", async (req, res) => {
   try {
+    const status = await paymentService.getStatus();
+    const useUsdc = status.currency === "USDC";
     const vault = getVault();
     if (!vault) return res.json({ services: [], offlineMode: true });
     const serviceCount = await vault.serviceCount();
     const services = [];
     for (let i = 0; i < Number(serviceCount); i++) {
       const s = await vault.getService(i);
+      const priceHuman = useUsdc ? ethers.formatUnits(s.pricePerCall, 6) : ethers.formatEther(s.pricePerCall);
+      const earnedHuman = useUsdc ? ethers.formatUnits(s.totalEarned, 6) : ethers.formatEther(s.totalEarned);
       services.push({
         id: Number(s.id),
         apiId: s.apiId,
         name: s.name,
         endpoint: s.endpoint,
-        pricePerCall: ethers.formatEther(s.pricePerCall),
-        priceUSDC: (Number(ethers.formatEther(s.pricePerCall)) * 1000).toFixed(4),
+        pricePerCall: priceHuman,
+        ...(useUsdc ? { priceUSDC: priceHuman } : {}),
+        currency: status.currency,
         provider: s.provider,
         active: s.active,
         totalCalls: Number(s.totalCalls),
-        totalEarned: ethers.formatEther(s.totalEarned)
+        totalEarned: earnedHuman
       });
     }
-    res.json({ services, totalServices: services.length });
+    res.json({ services, totalServices: services.length, currency: status.currency });
   } catch (err) {
     res.status(200).json({ services: [], error: err.message });
   }
@@ -255,8 +295,11 @@ app.post("/register-api", async (req, res) => {
     const vault = getVault();
     if (!vault) return res.status(503).json({ error: "Chain not available" });
 
-    const priceEth = (parseFloat(priceUSDC) / 1000).toString();
-    const priceWei = ethers.parseEther(priceEth);
+    const status = await paymentService.getStatus();
+
+    const priceWei = status.currency === "USDC"
+      ? ethers.parseUnits(priceUSDC.toString(), 6)
+      : ethers.parseEther((parseFloat(priceUSDC) / 1000).toString());
 
     const tx = await vault.registerAPI(apiId, name, endpoint, priceWei);
     const receipt = await tx.wait();
@@ -267,6 +310,7 @@ app.post("/register-api", async (req, res) => {
       apiId,
       name,
       priceUSDC: parseFloat(priceUSDC),
+      currency: status.currency,
       message: `API "${name}" registered on-chain`
     });
   } catch (err) {
@@ -318,6 +362,8 @@ app.post("/dispute", async (req, res) => {
 
 app.get("/protocol-stats", async (req, res) => {
   try {
+    const status = await paymentService.getStatus();
+    const useUsdc = status.currency === "USDC";
     const vault = getVault();
     if (!vault) return res.json({
       totalServices: 0,
@@ -334,8 +380,11 @@ app.get("/protocol-stats", async (req, res) => {
     res.json({
       totalServices: Number(serviceCount),
       totalTransactions: Number(paymentCount),
-      totalVolumeETH: ethers.formatEther(totalSpent),
-      totalVolumeUSDC: (Number(ethers.formatEther(totalSpent)) * 1000).toFixed(4),
+      totalVolume: useUsdc ? ethers.formatUnits(totalSpent, 6) : ethers.formatEther(totalSpent),
+      ...(useUsdc
+        ? { totalVolumeUSDC: ethers.formatUnits(totalSpent, 6) }
+        : { totalVolumeETH: ethers.formatEther(totalSpent) }),
+      currency: status.currency,
       contractAddress: deployment.contractAddress,
       network: deployment.network
     });

@@ -10,6 +10,8 @@ const path = require("path");
 let _provider = null;
 let _vault = null;
 
+const vaultAbi = require("../shared/BudgetVault.deployment.json").abi;
+
 function getVault() {
   if (_vault) return _vault;
   try {
@@ -27,7 +29,7 @@ function getVault() {
     );
     _vault = new ethers.Contract(
       deployment.contractAddress,
-      deployment.abi,
+      vaultAbi,
       _provider
     );
     return _vault;
@@ -37,8 +39,10 @@ function getVault() {
 }
 
 // Convert on-chain service to registry format
-function serviceToAPI(s) {
-  const priceUSDC = Number(ethers.formatEther(s.pricePerCall)) * 1000;
+function serviceToAPI(s, useUsdc) {
+  const priceUSDC = useUsdc
+    ? Number(ethers.formatUnits(s.pricePerCall, 6))
+    : Number(ethers.formatEther(s.pricePerCall)) * 1000;
 
   // Map on-chain apiId to executor case
   const idMap = {
@@ -78,6 +82,11 @@ async function getAPIsFromChain() {
     const vault = getVault();
     if (!vault) throw new Error("Vault not available");
 
+    let useUsdc = false;
+    try {
+      useUsdc = await vault.usdcMode();
+    } catch (err) {}
+
     const count = await vault.serviceCount();
     const apis = [];
 
@@ -85,7 +94,7 @@ async function getAPIsFromChain() {
       try {
         const s = await vault.getService(i);
         if (s.active) {
-          apis.push(serviceToAPI(s));
+          apis.push(serviceToAPI(s, useUsdc));
         }
       } catch (e) {
         continue;
