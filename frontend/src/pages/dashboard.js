@@ -339,6 +339,11 @@ export default function Home() {
             <div style={{ fontSize: "40px", fontWeight: "800", color: "white", lineHeight: 1 }}>
               {budget}
             </div>
+            {status?.offlineMode && status?.remainingBudget === "0.0" && (
+              <div style={{ fontSize: "9px", color: "rgba(239,68,68,0.6)", letterSpacing: "0.1em", marginTop: "2px" }}>
+                CHAIN OFFLINE
+              </div>
+            )}
             <div
               style={{
                 fontSize: "10px",
@@ -771,6 +776,10 @@ export default function Home() {
                 <div>
                   <div style={{ fontSize: "10px", letterSpacing: "0.15em", color: "rgba(255,255,255,0.22)", marginBottom: "12px" }}>
                     EXECUTION LOG
+                  </div>
+                  <div style={{ fontSize: "10px", color: "rgba(255,255,255,0.2)", marginBottom: "12px", lineHeight: "1.6" }}>
+                    New providers start at 50. +2 per successful call.
+                    -10 per dispute. Auto-slash at 3 disputes.
                   </div>
                   <div ref={logRef} style={{ maxHeight: "380px", overflowY: "auto" }}>
                     {actionLog.length === 0 ? (

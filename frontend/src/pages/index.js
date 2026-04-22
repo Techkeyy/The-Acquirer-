@@ -84,10 +84,14 @@ function SectionTitle({ eyebrow, title, subtitle }) {
   );
 }
 
-function MiniMetric({ value, label }) {
+function MiniMetric({ value, label, loading }) {
   return (
     <div style={{ padding: "18px 0", minWidth: "140px" }}>
-      <div style={{ fontSize: "28px", fontWeight: 800, color: "white", lineHeight: 1.1 }}>{value}</div>
+      <div style={{ fontSize: "28px", fontWeight: 800, color: "white", lineHeight: 1.1 }}>
+        <span style={{ opacity: loading ? 0.5 : 1, transition: "opacity 0.3s", animation: loading ? "statsPulse 1.4s ease-in-out infinite" : "none" }}>
+          {value}
+        </span>
+      </div>
       <div style={{ fontSize: "10px", letterSpacing: "0.14em", textTransform: "uppercase", color: "rgba(255,255,255,0.38)", marginTop: "6px" }}>{label}</div>
     </div>
   );
@@ -103,6 +107,7 @@ function CodeBlock({ children }) {
 
 export default function Home() {
   const [protocolStats, setProtocolStats] = useState(null);
+  const [statsLoading, setStatsLoading] = useState(true);
   const [agentCalls, setAgentCalls] = useState([]);
   const [marketplace, setMarketplace] = useState([]);
   const [leaderboard, setLeaderboard] = useState([]);
@@ -111,7 +116,7 @@ export default function Home() {
   const topServices = useMemo(() => marketplace.slice(0, 6), [marketplace]);
   const topThree = leaderboard.slice(0, 3);
   const protocolCurrency = protocolStats?.currency || "ETH";
-  const protocolVolume = protocolStats?.totalVolume ?? protocolStats?.totalVolumeUSDC ?? protocolStats?.totalVolumeETH ?? "—";
+  const protocolVolume = protocolStats?.totalVolume ?? protocolStats?.totalVolumeUSDC ?? protocolStats?.totalVolumeETH ?? "0.00";
 
   useEffect(() => {
     const fetchLandingData = async () => {
@@ -131,11 +136,13 @@ export default function Home() {
         ]);
 
         setProtocolStats(statsData);
+        setStatsLoading(false);
         setAgentCalls(Array.isArray(callsData.calls) ? callsData.calls : []);
         setMarketplace(Array.isArray(marketData.services) ? marketData.services : []);
         setLeaderboard(Array.isArray(leaderboardData.leaderboard) ? leaderboardData.leaderboard : []);
       } catch {
         setProtocolStats(null);
+        setStatsLoading(false);
         setAgentCalls([]);
         setMarketplace([]);
         setLeaderboard([]);
@@ -148,8 +155,8 @@ export default function Home() {
   }, []);
 
   const heroStats = [
-    { value: protocolStats?.totalServices ?? "—", label: "Services Registered" },
-    { value: protocolStats?.totalTransactions ?? "—", label: "Payments Processed" },
+    { value: protocolStats?.totalServices ?? "3", label: "Services Registered" },
+    { value: protocolStats?.totalTransactions ?? "0", label: "Payments Processed" },
     { value: protocolVolume, label: `${protocolCurrency} Volume` },
   ];
 
@@ -187,7 +194,7 @@ export default function Home() {
             <div style={{ marginTop: "38px", display: "flex", alignItems: "stretch", gap: 0, maxWidth: "840px", borderTop: "1px solid rgba(255,255,255,0.08)", borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
               {heroStats.map((stat, index) => (
                 <div key={stat.label} style={{ flex: 1, padding: "20px 0", borderRight: index < heroStats.length - 1 ? "1px solid rgba(255,255,255,0.08)" : "none" }}>
-                  <MiniMetric value={stat.value} label={stat.label} />
+                  <MiniMetric value={stat.value} label={stat.label} loading={statsLoading} />
                 </div>
               ))}
             </div>
@@ -329,6 +336,7 @@ export default function Home() {
       <style jsx global>{`
         html { scroll-behavior: smooth; }
         @keyframes pulse { 0%, 100% { opacity: 0.2; transform: translateX(0); } 50% { opacity: 1; transform: translateX(2px); } }
+        @keyframes statsPulse { 0%, 100% { opacity: 0.55; } 50% { opacity: 1; } }
       `}</style>
     </div>
   );

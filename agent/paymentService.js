@@ -106,12 +106,12 @@ async function getStatus() {
   } catch (err) {
     return {
       contractAddress: deployment.contractAddress,
-      totalDeposited: "1.0",
+      totalDeposited: "0.0",
       totalSpent: "0.0",
-      remainingBudget: "1.0",
+      remainingBudget: "0.0",
       usdcBalance: null,
       usdcMode: false,
-      currency: "KITE",
+      currency: "USDC",
       paymentCount: 0,
       network: deployment.network || "offline",
       chainConnected: false,

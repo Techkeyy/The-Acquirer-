@@ -172,6 +172,10 @@ contract BudgetVault {
 			active: true,
 			totalCalls: 0,
 			totalEarned: 0,
+			// New providers start at 50/100 (neutral reputation)
+			// Score increases +2 per successful call (max 100)
+			// Score decreases -10 per dispute (min 0)
+			// Auto-slash after 3 disputes
 			stakeAmount: 0,
 			reputationScore: 50,
 			disputeCount: 0,
@@ -208,6 +212,10 @@ contract BudgetVault {
 			active: true,
 			totalCalls: 0,
 			totalEarned: 0,
+			// New providers start at 50/100 (neutral reputation)
+			// Score increases +2 per successful call (max 100)
+			// Score decreases -10 per dispute (min 0)
+			// Auto-slash after 3 disputes
 			stakeAmount: 0,
 			reputationScore: 50,
 			disputeCount: 0,
@@ -245,6 +253,10 @@ contract BudgetVault {
 			active: true,
 			totalCalls: 0,
 			totalEarned: 0,
+			// New providers start at 50/100 (neutral reputation)
+			// Score increases +2 per successful call (max 100)
+			// Score decreases -10 per dispute (min 0)
+			// Auto-slash after 3 disputes
 			stakeAmount: msg.value,
 			reputationScore: 50,
 			disputeCount: 0,

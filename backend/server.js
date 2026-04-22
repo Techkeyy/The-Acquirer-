@@ -3,13 +3,32 @@ require("dotenv").config({ override: true });
 const express = require("express");
 const cors = require("cors");
 const { ethers } = require("ethers");
+const fs = require("fs");
+const path = require("path");
 const { runAgent } = require("../agent/agentLoop");
 const { x402Payment } = require("./x402");
 const paymentService = require("../agent/paymentService");
 const registry = require("../agent/registry.json");
 const deployment = require("../shared/BudgetVault.deployment.json");
 
-const recentAgentCalls = [];
+const CALLS_LOG_PATH = path.join(__dirname, "../shared/agent-calls.json");
+
+function loadAgentCalls() {
+  try {
+    if (fs.existsSync(CALLS_LOG_PATH)) {
+      return JSON.parse(fs.readFileSync(CALLS_LOG_PATH, "utf8"));
+    }
+  } catch (e) {}
+  return [];
+}
+
+function saveAgentCalls(calls) {
+  try {
+    fs.writeFileSync(CALLS_LOG_PATH, JSON.stringify(calls, null, 2));
+  } catch (e) {}
+}
+
+let recentAgentCalls = loadAgentCalls();
 
 function summarizeAgentResult(result) {
   const summary = result?.finalResult?.summary || result?.summary;
@@ -109,6 +128,7 @@ app.post(
           timestamp: new Date().toISOString()
         });
         if (recentAgentCalls.length > 10) recentAgentCalls.pop();
+        saveAgentCalls(recentAgentCalls);
       }
 
       res.json({
