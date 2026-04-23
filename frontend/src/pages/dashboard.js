@@ -529,45 +529,87 @@ export default function Home() {
             </div>
 
             {result?.finalResult?.summary && (
-              <div
-                style={{
-                  margin: "0 48px 0",
-                  background: "linear-gradient(135deg, rgba(16,185,129,0.1), rgba(99,102,241,0.08))",
-                  border: "1px solid rgba(16,185,129,0.3)",
-                  borderLeft: "4px solid #10b981",
-                  borderRadius: "4px",
-                  padding: "28px 32px",
-                  animation: "fadeUp 0.5s ease",
-                }}
-              >
-                <div
-                  style={{
-                    display: "flex",
-                    justifyContent: "space-between",
-                    alignItems: "flex-start",
+              <div style={{
+                margin: "0 48px 24px",
+                background: "linear-gradient(135deg,rgba(16,185,129,0.1),rgba(99,102,241,0.08))",
+                border: "1px solid rgba(16,185,129,0.3)",
+                borderLeft: "4px solid #10b981",
+                borderRadius: "4px",
+                padding: "28px 32px",
+                animation: "fadeUp 0.5s ease"
+              }}>
+
+                {result?.finalResult?.reasoning && (
+                  <div style={{
                     marginBottom: "16px",
-                    gap: "16px",
-                  }}
-                >
-                  <div
-                    style={{
-                      fontSize: "10px",
-                      letterSpacing: "0.15em",
-                      color: "#10b981",
-                      fontWeight: "700",
-                    }}
-                  >
+                    padding: "12px 16px",
+                    background: "rgba(0,0,0,0.2)",
+                    borderRadius: "2px",
+                    borderLeft: "2px solid rgba(99,102,241,0.4)"
+                  }}>
+                    <div style={{
+                      fontSize: "9px",
+                      letterSpacing: "0.16em",
+                      color: "#a5b4fc",
+                      marginBottom: "6px",
+                      fontWeight: "700"
+                    }}>
+                      🧠 REASONING CHAIN
+                    </div>
+                    <div style={{
+                      fontSize: "12px",
+                      color: "rgba(255,255,255,0.55)",
+                      fontFamily: "monospace",
+                      lineHeight: 1.6
+                    }}>
+                      {result.finalResult.reasoning}
+                    </div>
+                  </div>
+                )}
+
+                <div style={{
+                  display: "flex",
+                  justifyContent: "space-between",
+                  alignItems: "flex-start",
+                  marginBottom: "16px",
+                  gap: "16px"
+                }}>
+                  <div style={{
+                    fontSize: "10px",
+                    letterSpacing: "0.15em",
+                    color: "#10b981",
+                    fontWeight: "700"
+                  }}>
                     💡 ORCHESTRATOR ANSWER
                   </div>
-                  <div style={{ display: "flex", gap: "12px", alignItems: "center", flexWrap: "wrap" }}>
-                    <span
-                      style={{
+                  <div style={{
+                    display: "flex",
+                    gap: "12px",
+                    alignItems: "center",
+                    flexWrap: "wrap"
+                  }}>
+                    {result?.finalResult?.confidence !== undefined && (
+                      <span style={{
                         fontSize: "10px",
-                        color: "rgba(255,255,255,0.3)",
-                        letterSpacing: "0.1em",
-                      }}
-                    >
-                      {result?.finalResult?.successfulAgents ?? 0} AGENTS · ${spentKITE} KITE SPENT
+                        padding: "2px 8px",
+                        background: result.finalResult.confidence >= 0.8
+                          ? "rgba(16,185,129,0.15)"
+                          : "rgba(245,158,11,0.15)",
+                        color: result.finalResult.confidence >= 0.8
+                          ? "#10b981" : "#f59e0b",
+                        borderRadius: "2px",
+                        letterSpacing: "0.08em"
+                      }}>
+                        {(result.finalResult.confidence * 100).toFixed(0)}% CONFIDENCE
+                      </span>
+                    )}
+                    <span style={{
+                      fontSize: "10px",
+                      color: "rgba(255,255,255,0.3)",
+                      letterSpacing: "0.1em"
+                    }}>
+                      {result?.finalResult?.successfulAgents ?? 0} AGENTS
+                      · ${(result?.totalCostUSDC || 0).toFixed(4)} KITE
                     </span>
                     {result?.txHash && result.txHash !== "0xDRYRUN" && (
                       <a
@@ -578,49 +620,79 @@ export default function Home() {
                           fontSize: "10px",
                           color: "#6366f1",
                           textDecoration: "none",
-                          fontFamily: "monospace",
-                          letterSpacing: "0.05em",
+                          fontFamily: "monospace"
                         }}
                       >
-                        {result.txHash.slice(0, 10)}...{result.txHash.slice(-6)} ↗
+                        {result.txHash.slice(0,10)}...{result.txHash.slice(-6)} ↗
                       </a>
                     )}
                   </div>
                 </div>
 
-                <div
-                  style={{
-                    fontSize: "22px",
-                    fontWeight: "500",
-                    color: "white",
-                    lineHeight: 1.6,
-                    letterSpacing: "-0.01em",
-                  }}
-                >
+                <div style={{
+                  fontSize: "22px",
+                  fontWeight: "500",
+                  color: "white",
+                  lineHeight: 1.6,
+                  letterSpacing: "-0.01em"
+                }}>
                   {result.finalResult.summary}
                 </div>
 
-                {result.finalResult.agentResults?.length > 0 && (
-                  <div style={{ display: "flex", gap: "8px", marginTop: "20px", flexWrap: "wrap" }}>
-                    {result.finalResult.agentResults.map((agent, index) => (
-                      <div
-                        key={index}
-                        style={{
-                          background: "rgba(255,255,255,0.05)",
-                          border: "1px solid rgba(255,255,255,0.08)",
-                          borderRadius: "2px",
-                          padding: "6px 12px",
-                          display: "flex",
-                          gap: "8px",
-                          alignItems: "center",
-                          flexWrap: "wrap",
-                        }}
-                      >
-                        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.6)", fontWeight: "600" }}>
+                {result?.finalResult?.actionableInsight && (
+                  <div style={{
+                    marginTop: "16px",
+                    padding: "10px 14px",
+                    background: "rgba(99,102,241,0.08)",
+                    borderRadius: "2px",
+                    fontSize: "13px",
+                    color: "#a5b4fc",
+                    lineHeight: 1.6
+                  }}>
+                    → {result.finalResult.actionableInsight}
+                  </div>
+                )}
+
+                {result?.finalResult?.confidence < 0.7 && result?.finalResult?.caveat && (
+                  <div style={{
+                    marginTop: "10px",
+                    fontSize: "11px",
+                    color: "rgba(245,158,11,0.7)",
+                    fontStyle: "italic"
+                  }}>
+                    ⚠ {result.finalResult.caveat}
+                  </div>
+                )}
+
+                {result?.finalResult?.agentResults?.length > 0 && (
+                  <div style={{
+                    display: "flex",
+                    gap: "8px",
+                    marginTop: "20px",
+                    flexWrap: "wrap"
+                  }}>
+                    {result.finalResult.agentResults.map((agent, i) => (
+                      <div key={i} style={{
+                        background: "rgba(255,255,255,0.05)",
+                        border: "1px solid rgba(255,255,255,0.08)",
+                        borderRadius: "2px",
+                        padding: "6px 12px",
+                        display: "flex",
+                        gap: "8px",
+                        alignItems: "center"
+                      }}>
+                        <span style={{
+                          fontSize: "11px",
+                          color: "rgba(255,255,255,0.6)",
+                          fontWeight: "600"
+                        }}>
                           {agent.agent}
                         </span>
-                        <span style={{ fontSize: "10px", color: "#a5b4fc" }}>
-                          {agent.cost} KITE
+                        <span style={{
+                          fontSize: "10px",
+                          color: "#a5b4fc"
+                        }}>
+                          ${agent.cost} KITE
                         </span>
                         {agent.txHash && !agent.txHash.startsWith("0xDRYRUN") && (
                           <a
@@ -631,7 +703,7 @@ export default function Home() {
                               fontSize: "10px",
                               color: "rgba(99,102,241,0.7)",
                               textDecoration: "none",
-                              fontFamily: "monospace",
+                              fontFamily: "monospace"
                             }}
                           >
                             receipt ↗
