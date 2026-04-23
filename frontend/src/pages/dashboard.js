@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from "react";
 import Nav from "../components/Nav";
+import AgentPassport from "../components/AgentPassport";
 
 const LOG_COLORS = {
   PLAN: { border: "#6366f1", bg: "rgba(99,102,241,0.06)" },
@@ -221,6 +222,12 @@ export default function Home() {
   }
 
   const isLive = status?.chainConnected === true;
+  const CONTRACT_ADDRESS = "0x3E595b27F23C95fC772D7Ee65926895A55D6C1a0";
+  const SUGGESTED_TASKS = [
+    "What is Bitcoin's price, how is the weather in London, and should I invest today?",
+    "Analyze Bitcoin and Ethereum prices and give me a market strategy",
+    "Give me a complete briefing: crypto prices, weather in NYC, and your AI analysis"
+  ];
   const budget = fmt(status?.remainingBudget ?? "1.0");
   const actionLog = (result?.actionLog || []).filter((entry) => entry.type !== "SUMMARY");
   const spentKITE = Number(result?.["totalCost" + currencySuffix] || 0).toFixed(4);
@@ -488,6 +495,39 @@ export default function Home() {
 
         {activeTab === "agent" && (
           <>
+            <AgentPassport contractAddress={CONTRACT_ADDRESS} />
+
+            <div style={{ marginBottom: "16px" }}>
+              <div style={{
+                fontSize: "10px",
+                letterSpacing: "0.14em",
+                color: "rgba(255,255,255,0.25)",
+                marginBottom: "8px"
+              }}>
+                SUGGESTED TASKS (fires all 3 agents)
+              </div>
+              <div style={{ display: "flex", gap: "8px", flexWrap: "wrap" }}>
+                {SUGGESTED_TASKS.map((suggestion, index) => (
+                  <button
+                    key={index}
+                    onClick={() => setTask(suggestion)}
+                    style={{
+                      background: "rgba(99,102,241,0.08)",
+                      border: "1px solid rgba(99,102,241,0.2)",
+                      color: "rgba(255,255,255,0.6)",
+                      padding: "6px 12px",
+                      fontSize: "11px",
+                      cursor: "pointer",
+                      borderRadius: "2px",
+                      textAlign: "left"
+                    }}
+                  >
+                    {suggestion.slice(0, 55)}...
+                  </button>
+                ))}
+              </div>
+            </div>
+
             {result?.finalResult?.summary && (
               <div
                 style={{

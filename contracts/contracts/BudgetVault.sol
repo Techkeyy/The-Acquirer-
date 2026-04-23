@@ -42,6 +42,9 @@ contract BudgetVault {
 	uint256 public constant MIN_STAKE = 0.001 ether;
 	uint256 public constant SLASH_AMOUNT = 0.0005 ether;
 	mapping(address => uint256) public providerReputation;
+	mapping(address => uint256) public agentAttestationCount;
+	mapping(address => mapping(uint256 => bytes32)) public agentAttestations;
+	uint256 public totalAttestations;
 
 	event Deposited(address indexed from, uint256 amount);
 	event PaymentMade(uint256 indexed paymentId, string apiId, uint256 amount, string note);
@@ -52,6 +55,15 @@ contract BudgetVault {
 	event DisputeFiled(uint256 indexed serviceId, address indexed filer, string reason);
 	event ProviderSlashed(uint256 indexed serviceId, address indexed provider, uint256 amount);
 	event ReputationUpdated(uint256 indexed serviceId, uint256 oldScore, uint256 newScore);
+	event AgentAttestation(
+		address indexed agentAddress,
+		uint256 indexed serviceId,
+		string apiId,
+		bytes32 taskHash,
+		uint256 reputationDelta,
+		uint256 timestamp,
+		uint256 attestationId
+	);
 
 	constructor() {
 		owner = msg.sender;
@@ -247,6 +259,39 @@ contract BudgetVault {
 
 		emit APIPurchased(idx, apiId, msg.sender, service.pricePerCall, paymentCount - 1);
 		if (remainingBudget == 0) emit BudgetExhausted(totalSpent);
+
+		bytes32 taskHashVal = keccak256(
+			abi.encodePacked(msg.sender, apiId, block.timestamp, paymentCount)
+		);
+		agentAttestations[msg.sender][agentAttestationCount[msg.sender]] = taskHashVal;
+		agentAttestationCount[msg.sender]++;
+		totalAttestations++;
+
+		emit AgentAttestation(
+			msg.sender,
+			idx,
+			apiId,
+			taskHashVal,
+			2,
+			block.timestamp,
+			totalAttestations
+		);
+	}
+
+	function getAgentPassport(address agent)
+		external view returns (
+			uint256 totalCalls,
+			uint256 attestationCount,
+			uint256 reputationScore,
+			bytes32 latestAttestation
+		)
+	{
+		totalCalls = agentAttestationCount[agent];
+		attestationCount = agentAttestationCount[agent];
+		reputationScore = providerReputation[agent];
+		latestAttestation = attestationCount > 0
+			? agentAttestations[agent][attestationCount - 1]
+			: bytes32(0);
 	}
 
 	function fileDispute(uint256 serviceId, string calldata reason) external {

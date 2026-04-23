@@ -1,5 +1,5 @@
 {
-  "contractAddress": "0x924D775B049626d45d334D27f44c9E4F63D4ae2E",
+  "contractAddress": "0x3E595b27F23C95fC772D7Ee65926895A55D6C1a0",
   "abi": [
     {
       "inputs": [],
@@ -72,6 +72,55 @@
         }
       ],
       "name": "APIRegistered",
+      "type": "event"
+    },
+    {
+      "anonymous": false,
+      "inputs": [
+        {
+          "indexed": true,
+          "internalType": "address",
+          "name": "agentAddress",
+          "type": "address"
+        },
+        {
+          "indexed": true,
+          "internalType": "uint256",
+          "name": "serviceId",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "string",
+          "name": "apiId",
+          "type": "string"
+        },
+        {
+          "indexed": false,
+          "internalType": "bytes32",
+          "name": "taskHash",
+          "type": "bytes32"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "reputationDelta",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "timestamp",
+          "type": "uint256"
+        },
+        {
+          "indexed": false,
+          "internalType": "uint256",
+          "name": "attestationId",
+          "type": "uint256"
+        }
+      ],
+      "name": "AgentAttestation",
       "type": "event"
     },
     {
@@ -266,6 +315,49 @@
     {
       "inputs": [
         {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        }
+      ],
+      "name": "agentAttestationCount",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "",
+          "type": "address"
+        },
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "name": "agentAttestations",
+      "outputs": [
+        {
+          "internalType": "bytes32",
+          "name": "",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
           "internalType": "string",
           "name": "",
           "type": "string"
@@ -429,6 +521,40 @@
       "name": "fileDispute",
       "outputs": [],
       "stateMutability": "nonpayable",
+      "type": "function"
+    },
+    {
+      "inputs": [
+        {
+          "internalType": "address",
+          "name": "agent",
+          "type": "address"
+        }
+      ],
+      "name": "getAgentPassport",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "totalCalls",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "attestationCount",
+          "type": "uint256"
+        },
+        {
+          "internalType": "uint256",
+          "name": "reputationScore",
+          "type": "uint256"
+        },
+        {
+          "internalType": "bytes32",
+          "name": "latestAttestation",
+          "type": "bytes32"
+        }
+      ],
+      "stateMutability": "view",
       "type": "function"
     },
     {
@@ -983,6 +1109,19 @@
     },
     {
       "inputs": [],
+      "name": "totalAttestations",
+      "outputs": [
+        {
+          "internalType": "uint256",
+          "name": "",
+          "type": "uint256"
+        }
+      ],
+      "stateMutability": "view",
+      "type": "function"
+    },
+    {
+      "inputs": [],
       "name": "totalDeposited",
       "outputs": [
         {
@@ -1016,6 +1155,6 @@
     }
   ],
   "network": "kite_testnet",
-  "deployedAt": "2026-04-22T18:29:38.874Z",
+  "deployedAt": "2026-04-23T10:12:08.767Z",
   "deployer": "0xbE12fc7aADE0631c313383BDb1d686C77db08400"
 }
