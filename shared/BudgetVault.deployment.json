@@ -1,5 +1,5 @@
 {
-  "contractAddress": "0x1DA4d4bC04B897999CBb40Ed9A80Cd62F5526aaE",
+  "contractAddress": "0x924D775B049626d45d334D27f44c9E4F63D4ae2E",
   "abi": [
     {
       "inputs": [],
@@ -411,19 +411,6 @@
       "name": "deposit",
       "outputs": [],
       "stateMutability": "payable",
-      "type": "function"
-    },
-    {
-      "inputs": [
-        {
-          "internalType": "uint256",
-          "name": "amount",
-          "type": "uint256"
-        }
-      ],
-      "name": "depositUSDC",
-      "outputs": [],
-      "stateMutability": "nonpayable",
       "type": "function"
     },
     {
@@ -995,19 +982,6 @@
       "type": "function"
     },
     {
-      "inputs": [
-        {
-          "internalType": "address",
-          "name": "_usdcToken",
-          "type": "address"
-        }
-      ],
-      "name": "setUSDCToken",
-      "outputs": [],
-      "stateMutability": "nonpayable",
-      "type": "function"
-    },
-    {
       "inputs": [],
       "name": "totalDeposited",
       "outputs": [
@@ -1035,32 +1009,6 @@
     },
     {
       "inputs": [],
-      "name": "usdcMode",
-      "outputs": [
-        {
-          "internalType": "bool",
-          "name": "",
-          "type": "bool"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
-      "name": "usdcToken",
-      "outputs": [
-        {
-          "internalType": "address",
-          "name": "",
-          "type": "address"
-        }
-      ],
-      "stateMutability": "view",
-      "type": "function"
-    },
-    {
-      "inputs": [],
       "name": "withdraw",
       "outputs": [],
       "stateMutability": "nonpayable",
@@ -1068,8 +1016,6 @@
     }
   ],
   "network": "kite_testnet",
-  "deployedAt": "2026-04-22T07:24:03.486Z",
-  "deployer": "0xbE12fc7aADE0631c313383BDb1d686C77db08400",
-  "usdcAddress": "0x5e35985eABFfd78a6Fd0a8e5818e0D2cc28Baf84",
-  "usdcMode": true
+  "deployedAt": "2026-04-22T18:29:38.874Z",
+  "deployer": "0xbE12fc7aADE0631c313383BDb1d686C77db08400"
 }

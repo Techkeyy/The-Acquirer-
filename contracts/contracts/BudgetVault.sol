@@ -2,21 +2,12 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-interface IERC20 {
-	function transferFrom(address from, address to, uint256 amount) external returns (bool);
-	function transfer(address to, uint256 amount) external returns (bool);
-	function balanceOf(address account) external view returns (uint256);
-	function approve(address spender, uint256 amount) external returns (bool);
-}
-
 contract BudgetVault {
 	address public owner;
 	address payable public constant defaultProvider = payable(0x2B18CA5c477802bEfEaFC140675a2DBECbCE60f5);
 	uint256 public totalDeposited;
 	uint256 public totalSpent;
 	uint256 public remainingBudget;
-	address public usdcToken;
-	bool public usdcMode;
 
 	struct Payment {
 		uint256 id;
@@ -65,8 +56,6 @@ contract BudgetVault {
 	constructor() {
 		owner = msg.sender;
 		remainingBudget = 0;
-		usdcToken = address(0);
-		usdcMode = false;
 	}
 
 	modifier onlyOwner() {
@@ -75,36 +64,9 @@ contract BudgetVault {
 	}
 
 	function deposit() external payable onlyOwner {
-		if (usdcMode && usdcToken != address(0)) {
-			revert("Use depositUSDC() when in USDC mode");
-		}
 		totalDeposited += msg.value;
 		remainingBudget = totalDeposited - totalSpent;
 		emit Deposited(msg.sender, msg.value);
-	}
-
-	function setUSDCToken(address _usdcToken) external onlyOwner {
-		usdcToken = _usdcToken;
-		usdcMode = true;
-	}
-
-	function depositUSDC(uint256 amount) external onlyOwner {
-		require(usdcMode, "Not in USDC mode");
-		require(usdcToken != address(0), "USDC not configured");
-		IERC20 usdc = IERC20(usdcToken);
-		require(usdc.transferFrom(msg.sender, address(this), amount), "USDC transfer failed");
-		totalDeposited += amount;
-		remainingBudget = totalDeposited - totalSpent;
-		emit Deposited(msg.sender, amount);
-	}
-
-	function _transferPayment(address payable provider, uint256 amount) internal {
-		if (usdcMode && usdcToken != address(0)) {
-			IERC20 usdc = IERC20(usdcToken);
-			require(usdc.transfer(provider, amount), "USDC transfer failed");
-			return;
-		}
-		provider.transfer(amount);
 	}
 
 	function pay(string calldata apiId, uint256 amount, string calldata note) external onlyOwner {
@@ -120,7 +82,7 @@ contract BudgetVault {
 		if (apiIdExists[apiId]) {
 			provider = apiServices[apiIdToIndex[apiId]].provider;
 		}
-		_transferPayment(provider, amount);
+		provider.transfer(amount);
 
 		emit PaymentMade(paymentCount - 1, apiId, amount, note);
 		if (remainingBudget == 0) {
@@ -142,15 +104,9 @@ contract BudgetVault {
 	}
 
 	function withdraw() external onlyOwner {
-		if (usdcMode && usdcToken != address(0)) {
-			IERC20 usdc = IERC20(usdcToken);
-			uint256 balance = usdc.balanceOf(address(this));
-			require(usdc.transfer(owner, balance), "Withdraw failed");
-		} else {
-			uint256 balance = address(this).balance;
-			(bool success, ) = payable(owner).call{value: balance}("");
-			require(success, "Withdraw failed");
-		}
+		uint256 balance = address(this).balance;
+		(bool success, ) = payable(owner).call{value: balance}("");
+		require(success, "Withdraw failed");
 		totalDeposited = 0;
 		totalSpent = 0;
 		remainingBudget = 0;
@@ -172,10 +128,6 @@ contract BudgetVault {
 			active: true,
 			totalCalls: 0,
 			totalEarned: 0,
-			// New providers start at 50/100 (neutral reputation)
-			// Score increases +2 per successful call (max 100)
-			// Score decreases -10 per dispute (min 0)
-			// Auto-slash after 3 disputes
 			stakeAmount: 0,
 			reputationScore: 50,
 			disputeCount: 0,
@@ -212,10 +164,6 @@ contract BudgetVault {
 			active: true,
 			totalCalls: 0,
 			totalEarned: 0,
-			// New providers start at 50/100 (neutral reputation)
-			// Score increases +2 per successful call (max 100)
-			// Score decreases -10 per dispute (min 0)
-			// Auto-slash after 3 disputes
 			stakeAmount: 0,
 			reputationScore: 50,
 			disputeCount: 0,
@@ -253,10 +201,6 @@ contract BudgetVault {
 			active: true,
 			totalCalls: 0,
 			totalEarned: 0,
-			// New providers start at 50/100 (neutral reputation)
-			// Score increases +2 per successful call (max 100)
-			// Score decreases -10 per dispute (min 0)
-			// Auto-slash after 3 disputes
 			stakeAmount: msg.value,
 			reputationScore: 50,
 			disputeCount: 0,
@@ -278,7 +222,9 @@ contract BudgetVault {
 		APIService storage service = apiServices[idx];
 		require(service.active, "API not active");
 		require(!service.slashed, "Provider has been slashed");
-		require(remainingBudget >= service.pricePerCall, "Insufficient budget");
+		if (msg.sender != owner) {
+			require(remainingBudget >= service.pricePerCall, "Insufficient budget");
+		}
 
 		payments[paymentCount] = Payment({
 			id: paymentCount,
@@ -293,7 +239,7 @@ contract BudgetVault {
 
 		service.totalCalls += 1;
 		service.totalEarned += service.pricePerCall;
-		_transferPayment(service.provider, service.pricePerCall);
+		service.provider.transfer(service.pricePerCall);
 		uint256 oldScore = service.reputationScore;
 		service.reputationScore = service.reputationScore < 98 ? service.reputationScore + 2 : 100;
 		providerReputation[service.provider] = service.reputationScore;

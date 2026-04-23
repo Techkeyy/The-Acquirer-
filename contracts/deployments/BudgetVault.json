@@ -1,5 +1,5 @@
 {
-  "contractAddress": "0x7b397100554Fc839dD1E46F2f1220fE6617e0c7D",
+  "contractAddress": "0x924D775B049626d45d334D27f44c9E4F63D4ae2E",
   "abi": [
     {
       "inputs": [],
@@ -1016,6 +1016,6 @@
     }
   ],
   "network": "kite_testnet",
-  "deployedAt": "2026-04-20T01:34:54.034Z",
+  "deployedAt": "2026-04-22T18:29:38.874Z",
   "deployer": "0xbE12fc7aADE0631c313383BDb1d686C77db08400"
 }
