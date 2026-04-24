@@ -127,12 +127,22 @@ export default function Docs() {
             <h2 style={{ fontSize: "28px", color: "white", marginBottom: "12px" }}>Quick Start</h2>
             <ol style={{ paddingLeft: "18px", color: "rgba(255,255,255,0.7)", lineHeight: 1.9, marginBottom: "16px" }}>
               <li>Call <span style={{ color: "white" }}>POST /agent/execute</span> with your task.</li>
-              <li>Receive HTTP 402 with payment details, nonce, and contract address.</li>
-              <li>Send ETH to the contract, then retry with payment headers.</li>
+              <li>Receive HTTP 402 with gokite-aa payment details, nonce, and contract address.</li>
+              <li>Pay with the official Kite Test USDT token, then retry with <span style={{ color: "white" }}>X-PAYMENT</span>.</li>
             </ol>
-            <CodeBlock>{`curl -X POST https://your-deployment.railway.app/agent/execute \
+            <CodeBlock>{`# Step 1: Call without payment
+curl -X POST https://the-acquirer-api.railway.app/agent/execute \
   -H "Content-Type: application/json" \
-  -d '{"task":"What is the Bitcoin price?"}'`}</CodeBlock>
+  -d '{"task": "What is Bitcoin price?"}'
+
+# Step 2: Retry with Kite X-PAYMENT
+curl -X POST https://the-acquirer-api.railway.app/agent/execute \
+  -H "Content-Type: application/json" \
+  -H "X-PAYMENT: <base64-encoded-payment-proof>" \
+  -d '{"task": "What is Bitcoin price?"}'`}</CodeBlock>
+            <p style={{ fontSize: "13px", lineHeight: 1.8, color: "rgba(255,255,255,0.45)", marginTop: "14px" }}>
+              The <code>X-PAYMENT</code> header is base64-encoded JSON with <code>txHash</code>, <code>from</code>, <code>to</code>, <code>amount</code>, <code>asset</code>, <code>network</code>, and <code>nonce</code>.
+            </p>
           </section>
 
           <section id="endpoints" style={{ marginBottom: "48px" }}>
@@ -157,9 +167,11 @@ export default function Docs() {
           <section id="x402" style={{ marginBottom: "48px" }}>
             <h2 style={{ fontSize: "28px", color: "white", marginBottom: "12px" }}>x402 Protocol</h2>
             <p style={{ fontSize: "15px", lineHeight: 1.8, color: "rgba(255,255,255,0.62)", marginBottom: "16px" }}>
-              x402 is the pay-first retry pattern for autonomous agents. The server returns 402 Payment Required, the agent pays on-chain, then retries with the payment receipt and nonce.
+              x402 is the pay-first retry pattern for autonomous agents. Kite's implementation uses the <code>gokite-aa</code> scheme, the <code>X-PAYMENT</code> header, and the official Kite Test USDT token.
             </p>
-            <CodeBlock>{`Agent request -> 402 challenge -> on-chain payment -> retry with receipt -> verified result`}</CodeBlock>
+            <CodeBlock>{`Agent request -> 402 challenge (scheme: gokite-aa, asset: 0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63)
+-> base64(X-PAYMENT JSON)
+-> verified result`}</CodeBlock>
           </section>
 
           <section id="reputation" style={{ marginBottom: "48px" }}>

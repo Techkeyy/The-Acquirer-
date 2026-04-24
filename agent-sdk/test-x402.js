@@ -11,6 +11,7 @@ const BASE_URL = process.env.ACQUIRER_URL || "http://localhost:4000";
 const PRIVATE_KEY = process.env.PRIVATE_KEY;
 const RPC_URL = process.env.KITE_RPC_URL || "https://rpc-testnet.gokite.ai/";
 const CHAIN_ID = parseInt(process.env.KITE_CHAIN_ID || "2368");
+const KITE_USDT = "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63";
 const deployment = JSON.parse(
   fs.readFileSync(path.join(__dirname, "../shared/BudgetVault.deployment.json"), "utf8")
 );
@@ -55,70 +56,50 @@ async function testX402Flow() {
 
   const challenge = await res1.json();
   console.log("✅ Got 402 Payment Required");
-  console.log("   Currency:", challenge.currency);
+  const accept = challenge.accepts?.[0] || {};
+  console.log("   Scheme:", accept.scheme || challenge.scheme || "unknown");
+  console.log("   Asset:", accept.asset || KITE_USDT);
   console.log("   Nonce:", challenge.nonce);
-  console.log("   Amount:", challenge.amount, challenge.currency);
-  console.log("   Pay to:", challenge.payTo);
+  console.log("   Amount:", accept.maxAmountRequired || challenge.amount, "wei");
+  console.log("   Pay to:", accept.payTo || challenge.payTo);
   console.log("   Expires:", challenge.expiresAt);
   console.log("");
 
-  let paymentTx;
-  if (challenge.currency === "USDC") {
-    const usdcAddress = challenge.tokenAddress || deployment.usdcAddress;
-    if (!usdcAddress) {
-      console.error("❌ USDC mode detected but no token address found");
-      process.exit(1);
-    }
+  console.log("STEP 2: Paying with Kite Test USDT...");
+  const token = new ethers.Contract(
+    accept.asset || KITE_USDT,
+    [
+      "function transfer(address to, uint256 amount) external returns (bool)",
+      "function balanceOf(address account) external view returns (uint256)"
+    ],
+    wallet
+  );
+  const amount = BigInt(accept.maxAmountRequired || challenge.amount || "20000");
+  const paymentTx = await token.transfer(accept.payTo || challenge.payTo, amount);
+  console.log("   Tx hash:", paymentTx.hash);
+  console.log("   Waiting for confirmation...");
 
-    const usdc = new ethers.Contract(
-      usdcAddress,
-      [
-        "function approve(address spender, uint256 amount) external returns (bool)",
-        "function balanceOf(address account) external view returns (uint256)"
-      ],
-      wallet
-    );
-    const vault = new ethers.Contract(
-      challenge.payTo,
-      ["function depositUSDC(uint256 amount) external"],
-      wallet
-    );
-    const amount = ethers.parseUnits(challenge.amount.toString(), 6);
-
-    console.log("STEP 2: Approving USDC spend...");
-    const approveTx = await usdc.approve(challenge.payTo, amount);
-    await approveTx.wait();
-    console.log("   Approval tx hash:", approveTx.hash);
-
-    console.log("STEP 2: Paying on Kite chain via depositUSDC()...");
-    paymentTx = await vault.depositUSDC(amount);
-    console.log("   Tx hash:", paymentTx.hash);
-    console.log("   Waiting for confirmation...");
-    await paymentTx.wait();
-    console.log("✅ Payment confirmed\n");
-  } else {
-    console.log("STEP 2: Paying on Kite chain...");
-    const vault = new ethers.Contract(
-      challenge.payTo,
-      ["function deposit() external payable"],
-      wallet
-    );
-    paymentTx = await vault.deposit({
-      value: ethers.parseEther(challenge.amount.toString())
-    });
-    console.log("   Tx hash:", paymentTx.hash);
-    console.log("   Waiting for confirmation...");
-
-    const receipt = await paymentTx.wait();
-    console.log("✅ Payment confirmed in block", receipt.blockNumber);
-    console.log("");
-  }
+  const receipt = await paymentTx.wait();
+  console.log("✅ Payment confirmed in block", receipt.blockNumber);
+  console.log("");
 
   console.log("STEP 3: Retrying with payment proof...");
+  const paymentProof = Buffer.from(JSON.stringify({
+    txHash: paymentTx.hash,
+    from: wallet.address,
+    to: accept.payTo || challenge.payTo,
+    amount: accept.maxAmountRequired || "20000",
+    asset: accept.asset || KITE_USDT,
+    network: "kite-testnet",
+    nonce: challenge.nonce,
+    timestamp: Date.now()
+  })).toString("base64");
+
   const res2 = await fetch(`${BASE_URL}/agent/execute`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
+      "X-PAYMENT": paymentProof,
       "X-Payment-Receipt": paymentTx.hash,
       "X-Payment-Sender": wallet.address,
       "X-Payment-Nonce": challenge.nonce

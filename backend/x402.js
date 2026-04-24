@@ -1,10 +1,12 @@
-// File: Desktop/The-Acquirer/backend/x402.js
 "use strict";
 require("dotenv").config();
 const { ethers } = require("ethers");
 const fs = require("fs");
 const path = require("path");
 const crypto = require("crypto");
+
+const KITE_USDT = "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63";
+const KITE_FACILITATOR = "0x12343e649e6b2b2b77649DFAb88f103c02F3C78b";
 
 const deployment = JSON.parse(
   fs.readFileSync(
@@ -13,107 +15,146 @@ const deployment = JSON.parse(
   )
 );
 
-const vaultAbi = deployment.abi;
-
 const pendingPayments = new Map();
-const usedReceipts = new Set();
+const usedPayments = new Set();
 
 function getProvider() {
   return new ethers.JsonRpcProvider(
-    process.env.KITE_RPC_URL || "http://127.0.0.1:8545",
-    { chainId: parseInt(process.env.KITE_CHAIN_ID || "2368"), name: "kite" },
+    process.env.KITE_RPC_URL || "https://rpc-testnet.gokite.ai/",
+    { chainId: 2368, name: "kite" },
     { staticNetwork: true, polling: false }
   );
 }
 
-async function getPaymentConfig() {
-  try {
-    const provider = getProvider();
-    const vault = new ethers.Contract(deployment.contractAddress, vaultAbi, provider);
-    const usdcMode = await vault.usdcMode();
-    if (usdcMode) {
-      return {
-        currency: "USDC",
-        decimals: 6,
-        method: "depositUSDC",
-        tokenAddress: await vault.usdcToken()
-      };
-    }
-  } catch (err) {
-    // Fall back to ETH mode when the vault is not yet configured.
-  }
-
-  return {
-    currency: "ETH",
-    decimals: 18,
-    method: "deposit",
-    tokenAddress: null
-  };
-}
-
-async function createPaymentChallenge(req, costAmount) {
-  const paymentConfig = await getPaymentConfig();
+function createKite402Response(req, costWei, description) {
   const nonce = crypto.randomBytes(16).toString("hex");
   const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
 
-  const challenge = {
-    paymentRequired: true,
-    protocol: "x402",
-    version: "1.0",
-    nonce,
-    amount: costAmount.toString(),
-    currency: paymentConfig.currency,
-    network: "kite-testnet",
-    chainId: parseInt(process.env.KITE_CHAIN_ID || "2368"),
-    payTo: deployment.contractAddress,
-    contract: deployment.contractAddress,
-    tokenAddress: paymentConfig.tokenAddress,
-    method: paymentConfig.method,
-    expiresAt,
-    instructions: paymentConfig.currency === "USDC"
-      ? [
-          "1. Approve the vault to spend USDC",
-          "2. Call depositUSDC() on the vault contract",
-          "3. Get the transaction hash",
-          "4. Retry this request with headers:",
-          "   X-Payment-Receipt: <txHash>",
-          "   X-Payment-Sender: <yourWalletAddress>",
-          "   X-Payment-Nonce: " + nonce
-        ].join("\n")
-      : [
-          "1. Send ETH to the contract address",
-          "2. Get the transaction hash",
-          "3. Retry this request with headers:",
-          "   X-Payment-Receipt: <txHash>",
-          "   X-Payment-Sender: <yourWalletAddress>",
-          "   X-Payment-Nonce: " + nonce
-        ].join("\n"),
-    curl_example: `curl -X POST ${req.protocol}://${req.get("host")}${req.path} \\
-  -H "Content-Type: application/json" \\
-  -H "X-Payment-Receipt: <txHash>" \\
-  -H "X-Payment-Sender: <walletAddress>" \\
-  -H "X-Payment-Nonce: ${nonce}" \\
-  -d '${JSON.stringify(req.body)}'`
-  };
-
   pendingPayments.set(nonce, {
-    costAmount,
-    currency: paymentConfig.currency,
-    decimals: paymentConfig.decimals,
-    method: paymentConfig.method,
-    tokenAddress: paymentConfig.tokenAddress,
+    costWei,
     createdAt: Date.now(),
     expiresAt: Date.now() + 5 * 60 * 1000,
     used: false
   });
 
-  return challenge;
+  return {
+    error: "X-PAYMENT header is required",
+    accepts: [{
+      scheme: "gokite-aa",
+      network: "kite-testnet",
+      maxAmountRequired: costWei.toString(),
+      resource: `${req.protocol}://${req.get("host")}${req.path}`,
+      description: description || "The Acquirer — On-chain API Protocol",
+      mimeType: "application/json",
+      outputSchema: {
+        input: { discoverable: true, method: req.method, type: "http" },
+        output: {
+          properties: {
+            answer: { description: "AI-synthesized answer", type: "string" },
+            txHashes: { description: "On-chain payment receipts", type: "array" },
+            verified: { description: "Payment verified on-chain", type: "boolean" }
+          },
+          required: ["answer", "verified"],
+          type: "object"
+        }
+      },
+      payTo: deployment.contractAddress,
+      maxTimeoutSeconds: 300,
+      asset: KITE_USDT,
+      extra: {
+        nonce,
+        expiresAt,
+        facilitator: KITE_FACILITATOR,
+        protocol: "The Acquirer v1.0"
+      },
+      merchantName: "The Acquirer Protocol"
+    }],
+    x402Version: 1,
+    nonce,
+    expiresAt
+  };
 }
 
-async function verifyPayment(txHash, sender, nonce, requiredAmount) {
+async function verifyOnChain(txHash, sender, requiredWei, nonce = null, pendingRef = null) {
+  if (usedPayments.has(txHash)) {
+    return { valid: false, reason: "Receipt already used" };
+  }
+
   try {
-    const paymentConfig = await getPaymentConfig();
-    const pending = pendingPayments.get(nonce);
+    const provider = getProvider();
+    const receipt = await provider.getTransactionReceipt(txHash);
+    if (!receipt) {
+      return { valid: false, reason: "Transaction not found on Kite chain" };
+    }
+    if (receipt.status !== 1) {
+      return { valid: false, reason: "Transaction failed on chain" };
+    }
+
+    usedPayments.add(txHash);
+    if (nonce && pendingRef) {
+      pendingRef.used = true;
+    }
+
+    return {
+      valid: true,
+      txHash,
+      sender: sender || receipt.from,
+      blockNumber: receipt.blockNumber,
+      method: "on-chain-verify"
+    };
+  } catch (err) {
+    return { valid: false, reason: "Verification error: " + err.message };
+  }
+}
+
+async function verifyKitePayment(req, requiredWei) {
+  const xPayment = req.headers["x-payment"];
+  const legacyReceipt = req.headers["x-payment-receipt"];
+  const legacyNonce = req.headers["x-payment-nonce"];
+  const legacySender = req.headers["x-payment-sender"];
+
+  if (xPayment) {
+    try {
+      const decoded = Buffer.from(xPayment, "base64").toString("utf8");
+      const paymentObj = JSON.parse(decoded);
+      const txHash = paymentObj.txHash || paymentObj.authorization?.txHash || paymentObj.receipt;
+
+      if (!txHash) {
+        try {
+          const verifyRes = await fetch("https://facilitator.pieverse.io/v2/verify", {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              authorization: paymentObj.authorization || paymentObj,
+              signature: paymentObj.signature,
+              network: "kite-testnet"
+            })
+          });
+          const verifyData = await verifyRes.json();
+          if (verifyData.valid || verifyData.verified) {
+            return {
+              valid: true,
+              txHash: verifyData.txHash || "kite-verified",
+              sender: verifyData.from || paymentObj.from,
+              amount: verifyData.amount,
+              method: "kite-facilitator"
+            };
+          }
+        } catch (facilitatorErr) {
+          console.warn("[x402] Facilitator check failed:", facilitatorErr.message);
+        }
+
+        return { valid: false, reason: "No transaction hash in X-PAYMENT" };
+      }
+
+      return await verifyOnChain(txHash, paymentObj.from || legacySender, requiredWei);
+    } catch (e) {
+      return { valid: false, reason: "Invalid X-PAYMENT format: " + e.message };
+    }
+  }
+
+  if (legacyReceipt && legacyNonce) {
+    const pending = pendingPayments.get(legacyNonce);
     if (!pending) {
       return { valid: false, reason: "Invalid or expired nonce" };
     }
@@ -121,162 +162,59 @@ async function verifyPayment(txHash, sender, nonce, requiredAmount) {
       return { valid: false, reason: "Nonce already used" };
     }
     if (Date.now() > pending.expiresAt) {
-      pendingPayments.delete(nonce);
+      pendingPayments.delete(legacyNonce);
       return { valid: false, reason: "Payment window expired" };
     }
 
-    if (usedReceipts.has(txHash)) {
-      return { valid: false, reason: "Receipt already used" };
-    }
-
-    const provider = getProvider();
-    const receipt = await provider.getTransactionReceipt(txHash);
-    if (!receipt) {
-      return { valid: false, reason: "Transaction not found on chain" };
-    }
-    if (receipt.status !== 1) {
-      return { valid: false, reason: "Transaction failed on chain" };
-    }
-
-    const tx = await provider.getTransaction(txHash);
-    if (!tx) {
-      return { valid: false, reason: "Transaction details not found" };
-    }
-
-    const contractAddr = deployment.contractAddress.toLowerCase();
-
-    const currency = pending.currency || paymentConfig.currency;
-    const decimals = pending.decimals || paymentConfig.decimals;
-
-    if (currency === "USDC") {
-      if (tx.to?.toLowerCase() !== contractAddr) {
-        return {
-          valid: false,
-          reason: `USDC payment must be sent to the vault contract. Expected: ${contractAddr}`
-        };
-      }
-
-      const iface = new ethers.Interface([
-        "function depositUSDC(uint256 amount)"
-      ]);
-      let parsed;
-      try {
-        parsed = iface.parseTransaction({ data: tx.data, value: tx.value });
-      } catch (err) {
-        parsed = null;
-      }
-
-      if (!parsed || parsed.name !== "depositUSDC") {
-        return {
-          valid: false,
-          reason: "USDC payment must call depositUSDC()"
-        };
-      }
-
-      const expectedAmount = ethers.parseUnits(requiredAmount.toString(), decimals);
-      if (parsed.args[0] !== expectedAmount) {
-        return {
-          valid: false,
-          reason: `Insufficient USDC payment. Required: ${requiredAmount} USDC`
-        };
-      }
-
-      if (tx.value !== 0n) {
-        return {
-          valid: false,
-          reason: "USDC payment transactions must not send native ETH"
-        };
-      }
-
-      if (sender && tx.from?.toLowerCase() !== sender.toLowerCase()) {
-        return {
-          valid: false,
-          reason: "Payment sender does not match X-Payment-Sender header"
-        };
-      }
-
-      pending.used = true;
-      usedReceipts.add(txHash);
-
-      return {
-        valid: true,
-        txHash,
-        sender: tx.from,
-        amount: ethers.formatUnits(parsed.args[0], decimals),
-        blockNumber: receipt.blockNumber,
-        currency,
-        tokenAddress: pending.tokenAddress || paymentConfig.tokenAddress
-      };
-    }
-
-    if (tx.to?.toLowerCase() !== contractAddr) {
-      return {
-        valid: false,
-        reason: `Payment not sent to contract. Expected: ${contractAddr}`
-      };
-    }
-
-    if (tx.value < ethers.parseEther(requiredAmount.toString())) {
-      return {
-        valid: false,
-        reason: `Insufficient payment. Required: ${requiredAmount} ETH`
-      };
-    }
-
-    if (sender && tx.from?.toLowerCase() !== sender.toLowerCase()) {
-      return {
-        valid: false,
-        reason: "Payment sender does not match X-Payment-Sender header"
-      };
-    }
-
-    pending.used = true;
-    usedReceipts.add(txHash);
-
-    return {
-      valid: true,
-      txHash,
-      sender: tx.from,
-      amount: ethers.formatEther(tx.value),
-      blockNumber: receipt.blockNumber,
-      currency
-    };
-  } catch (err) {
-    return { valid: false, reason: "Verification error: " + err.message };
+    return await verifyOnChain(legacyReceipt, legacySender, requiredWei, legacyNonce, pending);
   }
+
+  return {
+    valid: false,
+    reason: "No payment headers. Use X-PAYMENT (Kite) or X-Payment-Receipt + X-Payment-Nonce (legacy)"
+  };
 }
 
-function x402Payment(costAmount = 0.00002) {
+function x402Payment(costUSDC = 0.00002) {
+  const costWei = BigInt(Math.floor(costUSDC * 1_000_000)).toString();
+
   return async (req, res, next) => {
-    if (req.body?.dryRun === true) {
-      return next();
-    }
+    if (req.body?.dryRun === true) return next();
 
-    const receipt = req.headers["x-payment-receipt"];
-    const sender = req.headers["x-payment-sender"];
-    const nonce = req.headers["x-payment-nonce"];
+    const hasPayment = req.headers["x-payment"] || (req.headers["x-payment-receipt"] && req.headers["x-payment-nonce"]);
 
-    if (!receipt || !nonce) {
-      const challenge = await createPaymentChallenge(req, costAmount);
+    if (!hasPayment) {
+      const challenge = createKite402Response(req, costWei, `Agent task execution — ${costUSDC} USDT`);
       return res.status(402).json(challenge);
     }
 
-    const verification = await verifyPayment(receipt, sender, nonce, costAmount);
+    const verification = await verifyKitePayment(req, BigInt(costWei));
     if (!verification.valid) {
       return res.status(402).json({
-        paymentRequired: true,
-        error: verification.reason,
-        hint: "Get a new payment challenge by calling this endpoint without payment headers"
+        error: "Payment verification failed",
+        reason: verification.reason,
+        hint: "Call without payment headers to get a new challenge",
+        accepts: [{
+          scheme: "gokite-aa",
+          network: "kite-testnet",
+          asset: KITE_USDT,
+          payTo: deployment.contractAddress,
+          merchantName: "The Acquirer Protocol"
+        }],
+        x402Version: 1
       });
     }
 
     req.payment = verification;
-    console.log(
-      `[x402] Payment verified: ${receipt.slice(0, 12)}... from ${sender?.slice(0, 8)}... amount: ${verification.amount} ${verification.currency || "ETH"}`
-    );
-
+    console.log(`[x402] ✅ Payment verified via ${verification.method}`);
     next();
   };
 }
 
-module.exports = { x402Payment, verifyPayment, createPaymentChallenge };
+module.exports = {
+  x402Payment,
+  createKite402Response,
+  verifyKitePayment,
+  KITE_USDT,
+  KITE_FACILITATOR
+};

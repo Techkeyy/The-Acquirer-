@@ -1156,5 +1156,13 @@
   ],
   "network": "kite_testnet",
   "deployedAt": "2026-04-23T10:12:08.767Z",
-  "deployer": "0xbE12fc7aADE0631c313383BDb1d686C77db08400"
+  "deployer": "0xbE12fc7aADE0631c313383BDb1d686C77db08400",
+  "kiteUSDT": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+  "usdcAddress": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+  "usdcNotes": {
+    "type": "Kite Official Test USDT",
+    "address": "0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+    "kitescan": "https://testnet.kitescan.ai/token/0x0fF5393387ad2f9f691FD6Fd28e07E3969e27e63",
+    "note": "Official Kite testnet stablecoin — not MockUSDC"
+  }
 }

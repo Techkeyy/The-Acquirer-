@@ -351,7 +351,7 @@ export default function Home() {
               {budget}
             </div>
             <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.3)", letterSpacing: "0.12em", marginTop: "2px" }}>
-              USDC (KITE TESTNET)
+              USDT (KITE TESTNET)
             </div>
             {status?.offlineMode && status?.remainingBudget === "0.0" && (
               <div style={{ fontSize: "9px", color: "rgba(239,68,68,0.6)", letterSpacing: "0.1em", marginTop: "2px" }}>
@@ -616,7 +616,7 @@ export default function Home() {
                       letterSpacing: "0.1em"
                     }}>
                       {result?.finalResult?.successfulAgents ?? 0} AGENTS
-                      · ${(result?.totalCostUSDC || 0).toFixed(4)} KITE
+                      · ${(result?.totalCostUSDC || 0).toFixed(4)} USDT
                     </span>
                     {result?.txHash && result.txHash !== "0xDRYRUN" && (
                       <a
@@ -699,7 +699,7 @@ export default function Home() {
                           fontSize: "10px",
                           color: "#a5b4fc"
                         }}>
-                          ${agent.cost} KITE
+                          ${agent.cost} USDT
                         </span>
                         {agent.txHash && !agent.txHash.startsWith("0xDRYRUN") && (
                           <a
@@ -868,7 +868,7 @@ export default function Home() {
                             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "6px" }}>
                               <span style={{ fontSize: "12px", fontWeight: "700", color: "white" }}>{agent.agent}</span>
                               <span style={{ fontSize: "11px", color: "#a5b4fc", background: "rgba(99,102,241,0.15)", padding: "2px 8px", borderRadius: "2px" }}>
-                                {agent.cost} KITE
+                                {agent.cost} USDT
                               </span>
                             </div>
                             <div style={{ fontSize: "10px", fontFamily: "monospace", color: "rgba(255,255,255,0.3)", marginBottom: "4px" }}>

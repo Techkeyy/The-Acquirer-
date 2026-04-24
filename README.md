@@ -15,7 +15,7 @@ The Acquirer is a trustless API acquisition protocol
 where autonomous AI agents:
 
 1. **Discover** services from an on-chain registry on Kite chain
-2. **Pay** autonomously using USDC via the x402 payment standard
+2. **Pay** autonomously using Kite Test USDT via the x402 payment standard
 3. **Execute** the service and receive an immutable on-chain receipt
 4. **Build reputation** through the Kite Agent Passport system
 
@@ -27,8 +27,10 @@ No human approves payments. No middlemen. Pure agentic economy.
 Agent → POST /agent/execute
 ← HTTP 402 + nonce + payment details
 Agent pays on Kite chain → gets txHash
-Agent → POST /agent/execute + X-Payment-Receipt header
+Agent → POST /agent/execute + X-PAYMENT header
 ← HTTP 200 + verified answer + on-chain proof
+
+# X-PAYMENT = base64(JSON({txHash, from, amount, asset, nonce}))
 
 ---
 
@@ -50,7 +52,7 @@ event on-chain compatible with the Kite Agent Passport schema:
 |-----------|-----------|---------|
 | Smart Contract | Solidity 0.8.20 | Budget, registry, attestations, reputation |
 | Agent Orchestrator | Node.js + Groq | Deep reasoning, multi-agent decomposition |
-| Payment Layer | x402 + ethers.js | Trustless USDC settlement |
+| Payment Layer | x402 + ethers.js | Trustless USDT settlement |
 | Frontend | Next.js 14 | Dashboard + marketplace + docs |
 | Chain | Kite Testnet | All transactions and attestations |
 
@@ -72,10 +74,10 @@ curl -X POST https://the-acquirer-api.railway.app/agent/execute \
 # Step 3: Retry with payment proof
 curl -X POST https://the-acquirer-api.railway.app/agent/execute \
   -H "Content-Type: application/json" \
-  -H "X-Payment-Receipt: 0xYOUR_TX_HASH" \
-  -H "X-Payment-Sender: 0xYOUR_WALLET" \
-  -H "X-Payment-Nonce: abc123" \
+  -H "X-PAYMENT: <base64-encoded-json>" \
   -d '{"task": "What is Bitcoin price?"}'
+
+# X-PAYMENT = base64(JSON({txHash, from, amount, asset, nonce}))
 
 # Returns HTTP 200:
 # { "answer": "Bitcoin is at $78,374", "verified": true }
@@ -117,12 +119,12 @@ console.log(result.payment.receipt);
 
 ---
 
-## USDC Settlement
+## USDT Settlement
 
-All payments use USDC (ERC-20, 6 decimals). On Kite testnet,
-a Kite-USDC token is used since Circle has not yet bridged to
-Kite testnet. The contract uses a swappable token address —
-one transaction (`setUSDCToken()`) switches to Circle USDC on mainnet.
+All payments use USDT (ERC-20, 6 decimals). On Kite testnet,
+the official Kite Test USDT token is used. The contract uses a
+swappable token address — one transaction (`setUSDCToken()`)
+switches to Circle USDC on mainnet when available.
 
 ---
 

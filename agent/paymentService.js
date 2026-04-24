@@ -63,7 +63,7 @@ async function getStatus() {
       totalDeposited: "0.0",
       totalSpent: "0.0",
       remainingBudget: "0.0",
-      currency: "USDC",
+      currency: "USDT",
       paymentCount: 0,
       network: deployment.network || "offline",
       chainConnected: false,
@@ -88,7 +88,7 @@ async function recordPayment(apiId, amountUSDC, note) {
         console.log(`[PAYMENT] Using purchaseAPI() for ${apiId}`);
         tx = await v.purchaseAPI(
           apiId,
-          `${note} | cost: ${amountUSDC} USDC`
+          `${note} | cost: ${amountUSDC} USDT (Kite testnet)`
         );
         receipt = await tx.wait();
         console.log(`[PAYMENT] purchaseAPI confirmed: ${receipt.hash}`);
