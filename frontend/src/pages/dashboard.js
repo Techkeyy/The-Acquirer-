@@ -1,3 +1,4 @@
+import Head from "next/head";
 import { useState, useEffect, useRef } from "react";
 import Nav from "../components/Nav";
 import AgentPassport from "../components/AgentPassport";
@@ -243,6 +244,9 @@ export default function Home() {
         paddingTop: "56px",
       }}
     >
+      <Head>
+        <title>Dashboard — The Acquirer</title>
+      </Head>
       <Nav />
       <div
         style={{
@@ -345,6 +349,9 @@ export default function Home() {
           <div style={{ textAlign: "right" }}>
             <div style={{ fontSize: "40px", fontWeight: "800", color: "white", lineHeight: 1 }}>
               {budget}
+            </div>
+            <div style={{ fontSize: "9px", color: "rgba(255,255,255,0.3)", letterSpacing: "0.12em", marginTop: "2px" }}>
+              USDC (KITE TESTNET)
             </div>
             {status?.offlineMode && status?.remainingBudget === "0.0" && (
               <div style={{ fontSize: "9px", color: "rgba(239,68,68,0.6)", letterSpacing: "0.1em", marginTop: "2px" }}>

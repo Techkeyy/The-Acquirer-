@@ -1,3 +1,4 @@
+import Head from "next/head";
 import Nav from "../components/Nav";
 
 const sections = [
@@ -6,6 +7,7 @@ const sections = [
   { id: "endpoints", label: "Endpoints" },
   { id: "x402", label: "x402 Protocol" },
   { id: "reputation", label: "Reputation System" },
+  { id: "usdc", label: "USDC Settlement" },
   { id: "sdk", label: "SDK Reference" },
 ];
 
@@ -63,6 +65,9 @@ function EndpointCard({ title, method, path, children }) {
 export default function Docs() {
   return (
     <div style={{ minHeight: "100vh", background: "#07070f", color: "#e2e8f0" }}>
+      <Head>
+        <title>Docs — The Acquirer</title>
+      </Head>
       <Nav />
 
       <div style={{ display: "flex", paddingTop: "56px" }}>
@@ -167,6 +172,19 @@ export default function Docs() {
               <li>Reputation range: 0 to 100</li>
               <li>Slash threshold: 3 disputes</li>
             </ul>
+          </section>
+
+          <section id="usdc" style={{ marginBottom: "48px" }}>
+            <h2 style={{ fontSize: "28px", color: "white", marginBottom: "12px" }}>USDC Settlement</h2>
+            <p style={{ fontSize: "15px", lineHeight: 1.8, color: "rgba(255,255,255,0.62)", marginBottom: "16px" }}>
+              The Acquirer settles payments in a USDC-compatible token with 6 decimals on Kite testnet. This is intentionally explicit so the landing page, status API, and docs all describe the same settlement currency.
+            </p>
+            <CodeBlock>{`// Kite testnet deployment uses a USDC-compatible token
+// Production is a one-transaction swap to Circle USDC
+await vault.setUSDCToken("0x_CIRCLE_USDC_ADDRESS");`}</CodeBlock>
+            <p style={{ fontSize: "13px", color: "rgba(255,255,255,0.45)", lineHeight: 1.8, marginTop: "14px" }}>
+              Keep the x402 payment flow unchanged. Only the token address changes when the real Circle USDC bridge is available.
+            </p>
           </section>
 
           <section id="sdk">
